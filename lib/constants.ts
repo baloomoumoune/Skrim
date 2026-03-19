@@ -1,36 +1,62 @@
-export const GAME_THEMES = {
+// ── Base palette ──────────────────────────────────────
+// Neutral colors that match the SCRIM logo identity (pure black/white)
+
+export const LIGHT_COLORS = {
+  background: '#FFFFFF',
+  surface: '#F5F5F5',
+  surfaceElevated: '#FFFFFF',
+  border: '#EBEBEB',
+  borderStrong: '#D0D0D0',
+  textPrimary: '#000000',
+  textSecondary: '#666666',
+  textTertiary: '#999999',
+  // Neutral accent (used on auth screens before game selection)
+  accent: '#000000',
+  accentLight: 'rgba(0,0,0,0.06)',
+  accentMid: 'rgba(0,0,0,0.19)',
+  secondary: '#666666',
+} as const;
+
+export const DARK_COLORS = {
+  background: '#000000',
+  surface: '#111111',
+  surfaceElevated: '#1A1A1A',
+  border: '#1F1F1F',
+  borderStrong: '#2E2E2E',
+  textPrimary: '#FFFFFF',
+  textSecondary: '#888888',
+  textTertiary: '#555555',
+  // Neutral accent (used on auth screens before game selection)
+  accent: '#FFFFFF',
+  accentLight: 'rgba(255,255,255,0.06)',
+  accentMid: 'rgba(255,255,255,0.19)',
+  secondary: '#888888',
+} as const;
+
+export type ThemeColors = typeof LIGHT_COLORS;
+
+// ── Game accent overrides ────────────────────────────
+// Only accent/secondary change per game — base palette stays the same
+
+export const GAME_ACCENTS = {
   valorant: {
-    id: 'valorant',
+    id: 'valorant' as const,
     name: 'VALORANT',
     icon: 'V',
-    colors: {
-      accent: '#FF4655',
-      accentLight: '#FF465518',
-      accentMid: '#FF465540',
-      secondary: '#00D4AA',
-      background: '#0F1923',
-      surface: '#1A2634',
-      surfaceBorder: '#2A3A4A',
-      textPrimary: '#ECE8E1',
-      textSecondary: '#768A96',
-    },
+    accent: '#FF4655',
+    accentLight: 'rgba(255,70,85,0.08)',
+    accentMid: 'rgba(255,70,85,0.25)',
+    secondary: '#00D4AA',
   },
   cs2: {
-    id: 'cs2',
+    id: 'cs2' as const,
     name: 'CS2',
     icon: 'CS',
-    colors: {
-      accent: '#DE9B35',
-      accentLight: '#DE9B3518',
-      accentMid: '#DE9B3540',
-      secondary: '#5B9BD5',
-      background: '#1B1E23',
-      surface: '#252930',
-      surfaceBorder: '#353A42',
-      textPrimary: '#E8E6E0',
-      textSecondary: '#7A7D82',
-    },
+    accent: '#DE9B35',
+    accentLight: 'rgba(222,155,53,0.08)',
+    accentMid: 'rgba(222,155,53,0.25)',
+    secondary: '#5B9BD5',
   },
 } as const;
 
-export type GameId = keyof typeof GAME_THEMES;
+export type GameId = keyof typeof GAME_ACCENTS;

@@ -1,23 +1,15 @@
-import {
-  TouchableOpacity,
-  Text,
-  ActivityIndicator,
-  StyleSheet,
-  ViewStyle,
-  TextStyle,
-} from 'react-native';
+import { TouchableOpacity, Text, ActivityIndicator } from 'react-native';
+import { useColorScheme } from 'nativewind';
+import { useBaseColors } from '@/hooks/useThemeColors';
 
 interface ButtonProps {
   title: string;
   onPress: () => void;
-  variant?: 'primary' | 'outline';
+  variant?: 'primary' | 'outline' | 'ghost';
   loading?: boolean;
   disabled?: boolean;
-  accentColor?: string;
-  textColor?: string;
-  borderColor?: string;
-  style?: ViewStyle;
-  textStyle?: TextStyle;
+  className?: string;
+  color?: string;
 }
 
 export default function Button({
@@ -26,52 +18,54 @@ export default function Button({
   variant = 'primary',
   loading = false,
   disabled = false,
-  accentColor = '#FF4655',
-  textColor = '#FFFFFF',
-  borderColor = '#2A3A4A',
-  style,
-  textStyle,
+  className = '',
+  color,
 }: ButtonProps) {
-  const isPrimary = variant === 'primary';
+  const c = useBaseColors();
+  const { colorScheme } = useColorScheme();
+  const isDark = colorScheme === 'dark';
+
+  const resolvedColor = color ?? c.accent;
+
+  const bgColor = {
+    primary: resolvedColor,
+    outline: 'transparent',
+    ghost: 'transparent',
+  }[variant];
+
+  const textColor = {
+    primary: '#FFFFFF',
+    outline: c.textPrimary,
+    ghost: c.textSecondary,
+  }[variant];
 
   return (
     <TouchableOpacity
-      style={[
-        styles.base,
-        isPrimary
-          ? { backgroundColor: accentColor }
-          : { backgroundColor: 'transparent', borderWidth: 1, borderColor },
-        disabled && styles.disabled,
-        style,
-      ]}
+      className={`h-14 rounded-2xl items-center justify-center px-6 ${disabled ? 'opacity-50' : ''} ${className}`}
+      style={{
+        backgroundColor: bgColor,
+        borderWidth: variant === 'outline' ? 1 : 0,
+        borderColor: variant === 'outline'
+          ? (isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)')
+          : 'transparent',
+      }}
       onPress={onPress}
       disabled={disabled || loading}
-      activeOpacity={0.8}
+      activeOpacity={0.85}
     >
       {loading ? (
-        <ActivityIndicator color={textColor} size="small" />
+        <ActivityIndicator
+          color={variant === 'primary' ? '#FFFFFF' : c.textPrimary}
+          size="small"
+        />
       ) : (
-        <Text style={[styles.text, { color: textColor }, textStyle]}>
+        <Text
+          className="text-[15px] font-bold tracking-wide"
+          style={{ color: textColor }}
+        >
           {title}
         </Text>
       )}
     </TouchableOpacity>
   );
 }
-
-const styles = StyleSheet.create({
-  base: {
-    height: 48,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-  },
-  text: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  disabled: {
-    opacity: 0.5,
-  },
-});

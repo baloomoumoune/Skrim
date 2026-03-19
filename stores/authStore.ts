@@ -20,21 +20,30 @@ export const useAuthStore = create<AuthState>((set) => ({
   isLoading: true,
 
   setSession: (session) => {
-    console.log('[AuthStore] Session updated:', session ? 'authenticated' : 'null');
-    set({
-      session,
-      user: session?.user ?? null,
-      isLoading: false,
-    });
+    if (__DEV__) console.log('[AuthStore] Session updated:', session ? 'authenticated' : 'null');
+    if (!session) {
+      // No session — stop loading immediately, no profile to fetch
+      set({ session: null, user: null, profile: null, isLoading: false });
+    } else {
+      // Session found — reset profile and keep loading until profile is fetched
+      set((state) => ({
+        session,
+        user: session.user,
+        // Only reset profile/loading if this is a different user
+        ...(state.user?.id !== session.user.id
+          ? { profile: null, isLoading: true }
+          : {}),
+      }));
+    }
   },
 
   setProfile: (profile) => {
-    console.log('[AuthStore] Profile updated:', profile?.username ?? 'null');
-    set({ profile });
+    if (__DEV__) console.log('[AuthStore] Profile updated:', profile?.username ?? 'null');
+    set({ profile, isLoading: false });
   },
 
   signOut: async () => {
-    console.log('[AuthStore] Signing out...');
+    if (__DEV__) console.log('[AuthStore] Signing out...');
     const { error } = await supabase.auth.signOut();
     if (error) {
       console.error('[AuthStore] Sign out error:', error.message);

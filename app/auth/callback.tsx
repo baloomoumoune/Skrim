@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, ActivityIndicator } from 'react-native';
 import * as Linking from 'expo-linking';
 import { supabase } from '@/lib/supabase';
 
@@ -10,7 +10,7 @@ export default function AuthCallback() {
     async function handleCallback() {
       try {
         const initialUrl = await Linking.getInitialURL();
-        console.log('[AuthCallback] Initial URL:', initialUrl);
+        if (__DEV__) console.log('[AuthCallback] Initial URL:', initialUrl);
 
         if (!initialUrl) return;
 
@@ -20,7 +20,7 @@ export default function AuthCallback() {
           const access_token = params.get('access_token');
           const refresh_token = params.get('refresh_token');
 
-          console.log('[AuthCallback] Tokens:', {
+          if (__DEV__) console.log('[AuthCallback] Tokens:', {
             access: !!access_token,
             refresh: !!refresh_token,
           });
@@ -33,7 +33,7 @@ export default function AuthCallback() {
             if (error) {
               console.error('[AuthCallback] Session error:', error.message);
             } else {
-              console.log('[AuthCallback] Session set successfully');
+              if (__DEV__) console.log('[AuthCallback] Session set successfully');
             }
             // _layout.tsx useProtectedRoute will handle the redirect
           }
@@ -47,17 +47,8 @@ export default function AuthCallback() {
   }, []);
 
   return (
-    <View style={styles.container}>
-      <ActivityIndicator color="#FF4655" size="large" />
+    <View className="flex-1 bg-background items-center justify-center">
+      <ActivityIndicator size="large" />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0F1923',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});

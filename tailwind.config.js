@@ -5,8 +5,15 @@ module.exports = {
     './components/**/*.{js,jsx,ts,tsx}',
   ],
   presets: [require('nativewind/preset')],
+  darkMode: 'class',
   theme: {
-    extend: {},
+    extend: {
+      colors: {
+        valorant: '#FF4655',
+        cs2: '#DE9B35',
+        discord: '#5865F2',
+      },
+    },
   },
   plugins: [],
 };
