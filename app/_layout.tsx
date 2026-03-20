@@ -53,7 +53,7 @@ function useProtectedRoute() {
 
     if (session && !needsOnboarding && !inTabsGroup) {
       if (__DEV__) console.log('[ProtectedRoute] → tabs');
-      router.replace('/(tabs)/feed');
+      router.replace('/(tabs)/scrims');
       hasRedirected.current = true;
       return;
     }

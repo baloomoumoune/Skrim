@@ -14,10 +14,16 @@ export default function TeamScreen() {
     <View className="flex-1" style={{ backgroundColor: c.background, paddingTop: insets.top }}>
       {/* Header */}
       <View
-        className="px-5 py-3"
-        style={{ borderBottomWidth: 0.5, borderBottomColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }}
+        style={{
+          height: 60,
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingHorizontal: 20,
+          borderBottomWidth: 0.5,
+          borderBottomColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
+        }}
       >
-        <Text className="text-xl font-bold tracking-tight" style={{ color: c.textPrimary }}>
+        <Text style={{ fontSize: 20, fontWeight: '700', color: c.textPrimary, letterSpacing: -0.5 }}>
           Team
         </Text>
       </View>

@@ -19,19 +19,46 @@
         "applinks:nlmtbflnzykjuwqigctt.supabase.co"
       ],
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSPhotoLibraryUsageDescription": "Allow Scrim to access your photos to set your profile picture.",
+        "NSCameraUsageDescription": "Allow Scrim to use the camera to scan QR codes."
       }
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#000000"
       },
-      "package": "com.scrim.app"
+      "package": "com.scrim.app",
+      "permissions": [
+        "CAMERA",
+        "READ_MEDIA_IMAGES",
+        "VIBRATE",
+        "RECEIVE_BOOT_COMPLETED"
+      ]
     },
     "plugins": [
       "expo-router",
       "expo-font",
-      "expo-dev-client"
+      "expo-dev-client",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Scrim to access your photos to set your profile picture."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Scrim to use the camera to scan QR codes."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#FF4655"
+        }
+      ],
     ],
     "extra": {
       "router": {},

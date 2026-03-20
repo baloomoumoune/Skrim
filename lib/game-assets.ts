@@ -3,21 +3,40 @@ import { supabase } from './supabase';
 // ── Public URL builder ──────────────────────────────
 const BUCKET = 'game-assets';
 
+export type AgentRole = 'duelist' | 'initiator' | 'controller' | 'sentinel';
+
+/** Maps agent role to the Storage folder name */
+const ROLE_FOLDER: Record<AgentRole, string> = {
+  controller: 'Controllers',
+  duelist: 'Duellists',
+  initiator: 'Initiators',
+  sentinel: 'Sentinels',
+};
+
+/** Returns the public CDN URL for a game logo in games-logo/ folder */
+export function getGameLogoUrl(logo: string): string {
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(`games-logo/${logo}`);
+  return data.publicUrl;
+}
+
 /**
  * Returns the public CDN URL for a game asset.
  *
  * @example
- *   getAssetUrl('valorant', 'agents', 'jett.png')
- *   // → https://xxx.supabase.co/storage/v1/object/public/game-assets/valorant/agents/jett.png
+ *   getAssetUrl('valorant', 'maps', 'jett.png')
+ *   getAssetUrl('valorant', 'agents', 'jett.png', 'duelist')
  */
 export function getAssetUrl(
   game: string,
   type: 'agents' | 'maps' | 'ranks',
   filename: string,
+  role?: AgentRole,
 ): string {
-  const { data } = supabase.storage
-    .from(BUCKET)
-    .getPublicUrl(`${game}/${type}/${filename}`);
+  const path =
+    type === 'agents' && role
+      ? `${game}/${type}/${ROLE_FOLDER[role]}/${filename}`
+      : `${game}/${type}/${filename}`;
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
   return data.publicUrl;
 }
 
@@ -26,7 +45,7 @@ export function getAssetUrl(
 export interface AgentMeta {
   id: string;
   name: string;
-  role: 'duelist' | 'initiator' | 'controller' | 'sentinel';
+  role: AgentRole;
   image: string; // filename in storage
 }
 
@@ -69,9 +88,9 @@ export const VALORANT_AGENTS: AgentMeta[] = [
   { id: 'viper', name: 'Viper', role: 'controller', image: 'viper.png' },
   { id: 'vyse', name: 'Vyse', role: 'sentinel', image: 'vyse.png' },
   { id: 'yoru', name: 'Yoru', role: 'duelist', image: 'yoru.png' },
-  { id: 'miks', name: 'Miks', role: 'initiator', image: 'miks.png' },
+  { id: 'miks', name: 'Miks', role: 'controller', image: 'miks.png' },
   { id: 'tejo', name: 'Tejo', role: 'initiator', image: 'tejo.png' },
-  { id: 'veto', name: 'Veto', role: 'initiator', image: 'veto.png' },
+  { id: 'veto', name: 'Veto', role: 'sentinel', image: 'veto.png' },
   { id: 'waylay', name: 'Waylay', role: 'duelist', image: 'waylay.png' },
 ];
 
@@ -105,6 +124,7 @@ function rankEntry(name: string, tiers: number): RankMeta[] {
 }
 
 export const VALORANT_RANKS: RankMeta[] = [
+  { id: 'unranked', name: 'Unranked', tier: null, image: 'unranked.png' },
   ...rankEntry('Iron', 3),
   ...rankEntry('Bronze', 3),
   ...rankEntry('Silver', 3),
@@ -115,3 +135,23 @@ export const VALORANT_RANKS: RankMeta[] = [
   ...rankEntry('Immortal', 3),
   ...rankEntry('Radiant', 0),
 ];
+
+/** Returns rank IDs that are strictly above the given peak rank in hierarchy */
+export function getDisabledRankIds(peakRankId: string | null, ranks: RankMeta[]): string[] {
+  if (!peakRankId) return ranks.map((r) => r.id);
+  const peakIdx = ranks.findIndex((r) => r.id === peakRankId);
+  if (peakIdx === -1) return [];
+  return ranks.filter((_, i) => i > peakIdx).map((r) => r.id);
+}
+
+/** Extracts the general rank name from a rank ID: 'gold_1' → 'Gold', 'radiant' → 'Radiant' */
+export function getRankLabel(rankId: string): string {
+  const base = rankId.split('_')[0];
+  return base.charAt(0).toUpperCase() + base.slice(1);
+}
+
+/** Returns the rank image filename for a given rank ID */
+export function getRankImage(rankId: string, ranks: RankMeta[]): string | null {
+  const rank = ranks.find((r) => r.id === rankId);
+  return rank?.image ?? null;
+}

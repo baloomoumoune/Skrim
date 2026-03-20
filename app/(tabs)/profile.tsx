@@ -1,12 +1,29 @@
-import { View, Text, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { useState } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  Alert,
+  ScrollView,
+  Image,
+  Modal,
+  ActivityIndicator,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from 'nativewind';
+import * as ImagePicker from 'expo-image-picker';
+import { File } from 'expo-file-system/next';
 import { useAuthStore } from '@/stores/authStore';
 import { useThemeStore, ThemePreference } from '@/stores/themeStore';
 import { useColors } from '@/hooks/useThemeColors';
 import { useGameStore } from '@/stores/gameStore';
-import { GAME_ACCENTS } from '@/lib/constants';
+import { useGameAssets } from '@/hooks/useGameAssets';
+import { GAME_ACCENTS, GAME_MULTIPLATFORM } from '@/lib/constants';
+import type { Platform } from '@/types/database';
+import { getDisabledRankIds } from '@/lib/game-assets';
+import { supabase } from '@/lib/supabase';
+import AssetPickerModal, { PickerItem } from '@/components/AssetPickerModal';
 
 const THEME_OPTIONS: { value: ThemePreference; label: string; icon: React.ComponentProps<typeof Ionicons>['name'] }[] = [
   { value: 'system', label: 'Auto', icon: 'phone-portrait-outline' },
@@ -16,13 +33,155 @@ const THEME_OPTIONS: { value: ThemePreference; label: string; icon: React.Compon
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
-  const { user, profile, signOut } = useAuthStore();
+  const { user, profile, setProfile } = useAuthStore();
   const { colorScheme } = useColorScheme();
   const { preference, setPreference } = useThemeStore();
   const c = useColors();
   const isDark = colorScheme === 'dark';
   const selectedGame = useGameStore((s) => s.selectedGame);
   const game = GAME_ACCENTS[selectedGame];
+  const { agents, ranks, agentUrl, rankUrl } = useGameAssets();
+  const isMultiplatform = GAME_MULTIPLATFORM[selectedGame] ?? false;
+
+  // Modal state
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showRankPicker, setShowRankPicker] = useState(false);
+  const [rankPickerType, setRankPickerType] = useState<'current' | 'peak'>('current');
+  const [showAgentPicker, setShowAgentPicker] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  // Resolve stored IDs to metadata
+  const currentRankMeta = ranks.find((r) => r.id === profile?.current_rank) ?? null;
+  const peakRankMeta = ranks.find((r) => r.id === profile?.peak_rank) ?? null;
+  const mainAgentMeta = agents.find((a) => a.id === profile?.main_agent) ?? null;
+
+  // Build picker items
+  const rankItems: PickerItem[] = ranks.map((r) => ({
+    id: r.id,
+    name: r.name,
+    imageUrl: rankUrl(r.image),
+  }));
+
+  const agentItems: PickerItem[] = agents.map((a) => ({
+    id: a.id,
+    name: a.name,
+    imageUrl: agentUrl(a.image, a.role),
+    group: a.role,
+  }));
+
+  // Ranks above peak rank are disabled for current rank selection
+  const currentRankDisabledIds = getDisabledRankIds(profile?.peak_rank ?? null, ranks);
+
+  const handlePickAvatar = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission required', 'Please allow access to your photo library to change your avatar.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
+
+    if (result.canceled || !result.assets[0] || !user || !profile) return;
+
+    setUploadingAvatar(true);
+    try {
+      const asset = result.assets[0];
+      const ext = asset.uri.split('.').pop()?.split('?')[0]?.toLowerCase() ?? 'jpg';
+      const filePath = `avatars/${user.id}.${ext}`;
+
+      // Read file as bytes using the new expo-file-system API
+      const file = new File(asset.uri);
+      const bytes = await file.bytes();
+
+      // Upload to Supabase Storage (game-assets bucket)
+      const { error: uploadError } = await supabase.storage
+        .from('game-assets')
+        .upload(filePath, bytes, {
+          upsert: true,
+          contentType: `image/${ext === 'jpg' ? 'jpeg' : ext}`,
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get the public URL
+      const { data: urlData } = supabase.storage
+        .from('game-assets')
+        .getPublicUrl(filePath);
+
+      // Add cache-buster to force refresh
+      const newAvatarUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+
+      // Update profile in DB
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: newAvatarUrl } as never)
+        .eq('id', user.id);
+
+      if (updateError) throw updateError;
+
+      setProfile({ ...profile, avatar_url: newAvatarUrl });
+      if (__DEV__) console.log('[Profile] Avatar updated:', newAvatarUrl);
+    } catch (err) {
+      console.error('[Profile] Avatar upload error:', err);
+      Alert.alert('Error', 'Failed to upload avatar.');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const handleRankSelect = async (id: string) => {
+    if (!user || !profile) return;
+    setShowRankPicker(false);
+
+    try {
+      const updates: Record<string, string | null> = {};
+
+      if (rankPickerType === 'peak') {
+        updates.peak_rank = id;
+        if (id === 'unranked') {
+          updates.current_rank = 'unranked';
+        } else if (profile.current_rank) {
+          const currentIdx = ranks.findIndex((r) => r.id === profile.current_rank);
+          const newPeakIdx = ranks.findIndex((r) => r.id === id);
+          if (currentIdx > newPeakIdx) {
+            updates.current_rank = null;
+          }
+        }
+      } else {
+        updates.current_rank = id;
+      }
+
+      const { error } = await supabase
+        .from('profiles')
+        .update(updates as never)
+        .eq('id', user.id);
+      if (error) throw error;
+      setProfile({ ...profile, ...updates });
+    } catch {
+      Alert.alert('Error', 'Failed to update rank.');
+    }
+  };
+
+  const handleAgentSelect = async (id: string) => {
+    if (!user || !profile) return;
+    setShowAgentPicker(false);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ main_agent: id } as never)
+        .eq('id', user.id);
+      if (error) throw error;
+      setProfile({ ...profile, main_agent: id });
+    } catch {
+      Alert.alert('Error', 'Failed to update agent.');
+    }
+  };
 
   const handleSignOut = () => {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
@@ -32,154 +191,673 @@ export default function ProfileScreen() {
         style: 'destructive',
         onPress: async () => {
           if (__DEV__) console.log('[Profile] Signing out...');
-          await signOut();
+          await useAuthStore.getState().signOut();
         },
       },
     ]);
+  };
+
+  const cardStyle = {
+    backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+    borderWidth: 0.5,
+    borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
+  };
+
+  const dividerColor = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)';
+
+  const renderAvatar = (size: number, showEditBadge = false) => {
+    const content = profile?.avatar_url ? (
+      <Image
+        source={{ uri: profile.avatar_url }}
+        style={{
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          borderWidth: 2,
+          borderColor: game.accent,
+        }}
+      />
+    ) : (
+      <View
+        style={{
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          borderWidth: 2,
+          borderColor: game.accent,
+          backgroundColor: `${game.accent}18`,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Text
+          style={{
+            fontSize: size * 0.38,
+            fontWeight: '700',
+            color: game.accent,
+          }}
+        >
+          {(profile?.username?.[0] ?? '?').toUpperCase()}
+        </Text>
+      </View>
+    );
+
+    if (!showEditBadge) return content;
+
+    return (
+      <View>
+        {content}
+        <View
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            right: 0,
+            width: 24,
+            height: 24,
+            borderRadius: 12,
+            backgroundColor: game.accent,
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderWidth: 2,
+            borderColor: c.background,
+          }}
+        >
+          <Ionicons name="camera" size={12} color="#fff" />
+        </View>
+      </View>
+    );
   };
 
   return (
     <View className="flex-1" style={{ backgroundColor: c.background, paddingTop: insets.top }}>
       {/* Header */}
       <View
-        className="px-5 py-3"
-        style={{ borderBottomWidth: 0.5, borderBottomColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }}
+        style={{
+          height: 60,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingHorizontal: 20,
+          borderBottomWidth: 0.5,
+          borderBottomColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
+        }}
       >
-        <Text className="text-xl font-bold tracking-tight" style={{ color: c.textPrimary }}>
+        <Text style={{ fontSize: 20, fontWeight: '700', color: c.textPrimary, letterSpacing: -0.5 }}>
           Profile
         </Text>
+        <TouchableOpacity onPress={() => setShowSettingsModal(true)} activeOpacity={0.7}>
+          <Ionicons name="settings-outline" size={22} color={c.textSecondary} />
+        </TouchableOpacity>
       </View>
 
       <ScrollView
         contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 24, paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Avatar + Name */}
-        <View className="flex-row items-center gap-4 mb-8">
-          <View
-            className="w-14 h-14 rounded-full items-center justify-center"
-            style={{ backgroundColor: `${game.accent}18` }}
-          >
-            <Text className="text-xl font-bold" style={{ color: game.accent }}>
-              {(profile?.username?.[0] ?? user?.email?.[0] ?? '?').toUpperCase()}
-            </Text>
-          </View>
+        {/* Profile Header: Avatar + Username */}
+        <View className="flex-row items-center gap-4 mb-5">
+          {renderAvatar(80)}
           <View className="flex-1">
-            <Text className="text-[17px] font-bold" style={{ color: c.textPrimary }}>
+            <Text className="text-[22px] font-bold" style={{ color: c.textPrimary, letterSpacing: -0.5 }}>
               {profile?.username ?? 'Unknown'}
             </Text>
-            <Text className="text-[13px] mt-0.5" style={{ color: c.textSecondary }}>
-              {user?.email ?? user?.id}
+            {isMultiplatform && profile?.platform && (
+              <View className="flex-row items-center gap-1.5 mt-1">
+                <Ionicons
+                  name={profile.platform === 'console' ? 'game-controller-outline' : 'desktop-outline'}
+                  size={13}
+                  color={c.textTertiary}
+                />
+                <Text style={{ fontSize: 12, fontWeight: '500', color: c.textTertiary }}>
+                  {profile.platform === 'console' ? 'Console' : 'PC'}
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* Stats Row: Rank / Peak / Agent */}
+        <View
+          className="flex-row rounded-2xl overflow-hidden mb-4"
+          style={cardStyle}
+        >
+          {/* Current Rank */}
+          <View className="flex-1 items-center py-3" style={{ borderRightWidth: 0.5, borderRightColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }}>
+            <Text style={{ fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1.5, color: c.textTertiary, marginBottom: 6 }}>
+              Rank
+            </Text>
+            {currentRankMeta ? (
+              <Image
+                source={{ uri: rankUrl(currentRankMeta.image) }}
+                style={{ width: 40, height: 40 }}
+                resizeMode="contain"
+              />
+            ) : (
+              <Ionicons name="shield-outline" size={36} color={c.textTertiary} />
+            )}
+            <Text numberOfLines={1} style={{ fontSize: 11, fontWeight: '600', marginTop: 4, color: c.textSecondary }}>
+              {currentRankMeta?.name ?? '—'}
+            </Text>
+          </View>
+
+          {/* Peak Rank */}
+          <View className="flex-1 items-center py-3" style={{ borderRightWidth: 0.5, borderRightColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }}>
+            <Text style={{ fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1.5, color: c.textTertiary, marginBottom: 6 }}>
+              Peak
+            </Text>
+            {peakRankMeta ? (
+              <Image
+                source={{ uri: rankUrl(peakRankMeta.image) }}
+                style={{ width: 40, height: 40 }}
+                resizeMode="contain"
+              />
+            ) : (
+              <Ionicons name="trophy-outline" size={36} color={c.textTertiary} />
+            )}
+            <Text numberOfLines={1} style={{ fontSize: 11, fontWeight: '600', marginTop: 4, color: c.textSecondary }}>
+              {peakRankMeta?.name ?? '—'}
+            </Text>
+          </View>
+
+          {/* Main Agent */}
+          <View className="flex-1 items-center py-3">
+            <Text style={{ fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1.5, color: c.textTertiary, marginBottom: 6 }}>
+              Agent
+            </Text>
+            {mainAgentMeta ? (
+              <Image
+                source={{ uri: agentUrl(mainAgentMeta.image, mainAgentMeta.role) }}
+                style={{ width: 40, height: 40 }}
+                resizeMode="contain"
+              />
+            ) : (
+              <Ionicons name="person-outline" size={36} color={c.textTertiary} />
+            )}
+            <Text numberOfLines={1} style={{ fontSize: 11, fontWeight: '600', marginTop: 4, color: c.textSecondary }}>
+              {mainAgentMeta?.name ?? '—'}
             </Text>
           </View>
         </View>
 
-        {/* Section: Appearance */}
+        {/* Edit Profile button */}
+        <TouchableOpacity
+          className="flex-row items-center justify-center gap-2 rounded-xl py-3 mb-8"
+          style={{
+            borderWidth: 1,
+            borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
+            backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)',
+          }}
+          onPress={() => setShowEditModal(true)}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="pencil" size={14} color={c.textSecondary} />
+          <Text className="text-[13px] font-semibold" style={{ color: c.textSecondary }}>
+            Edit Profile
+          </Text>
+        </TouchableOpacity>
+
+        {/* Section: Game Stats (empty for now) */}
         <Text
           className="text-[11px] font-bold uppercase tracking-[3px] mb-3"
           style={{ color: c.textTertiary }}
         >
-          Appearance
+          Game Stats
         </Text>
-        <View
-          className="rounded-2xl overflow-hidden mb-8"
-          style={{
-            backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
-            borderWidth: 0.5,
-            borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
-          }}
-        >
-          <View className="flex-row">
-            {THEME_OPTIONS.map((opt) => {
-              const isActive = preference === opt.value;
-              return (
-                <TouchableOpacity
-                  key={opt.value}
-                  className="flex-1 flex-row items-center justify-center gap-2 py-3.5"
-                  style={{
-                    backgroundColor: isActive
-                      ? (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)')
-                      : 'transparent',
-                  }}
-                  onPress={() => setPreference(opt.value)}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons
-                    name={opt.icon}
-                    size={15}
-                    color={isActive ? c.textPrimary : c.textTertiary}
-                  />
-                  <Text
-                    className="text-[13px] font-semibold"
-                    style={{ color: isActive ? c.textPrimary : c.textTertiary }}
-                  >
-                    {opt.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+        <View className="rounded-2xl overflow-hidden mb-8 items-center justify-center py-6" style={cardStyle}>
+          <Text className="text-[13px]" style={{ color: c.textTertiary }}>
+            Coming soon
+          </Text>
         </View>
 
-        {/* Section: Account */}
-        <Text
-          className="text-[11px] font-bold uppercase tracking-[3px] mb-3"
-          style={{ color: c.textTertiary }}
-        >
-          Account
-        </Text>
-        <View
-          className="rounded-2xl overflow-hidden"
-          style={{
-            backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
-            borderWidth: 0.5,
-            borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
-          }}
-        >
-          {/* Region */}
-          <View
-            className="flex-row items-center justify-between px-4 py-3.5"
-            style={{ borderBottomWidth: 0.5, borderBottomColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)' }}
-          >
-            <View className="flex-row items-center gap-3">
-              <Ionicons name="globe-outline" size={18} color={c.textSecondary} />
-              <Text className="text-[14px]" style={{ color: c.textPrimary }}>Region</Text>
-            </View>
-            <Text className="text-[13px] font-medium" style={{ color: c.textSecondary }}>
-              {profile?.region?.toUpperCase() ?? '—'}
-            </Text>
-          </View>
-
-          {/* Game */}
-          <View
-            className="flex-row items-center justify-between px-4 py-3.5"
-            style={{ borderBottomWidth: 0.5, borderBottomColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)' }}
-          >
-            <View className="flex-row items-center gap-3">
-              <Ionicons name="game-controller-outline" size={18} color={c.textSecondary} />
-              <Text className="text-[14px]" style={{ color: c.textPrimary }}>Game</Text>
-            </View>
-            <View className="flex-row items-center gap-1.5">
-              <View className="w-2 h-2 rounded-full" style={{ backgroundColor: game.accent }} />
-              <Text className="text-[13px] font-medium" style={{ color: c.textSecondary }}>
-                {game.name}
-              </Text>
-            </View>
-          </View>
-
-          {/* Sign out */}
-          <TouchableOpacity
-            className="flex-row items-center gap-3 px-4 py-3.5"
-            onPress={handleSignOut}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="log-out-outline" size={18} color="#FF4655" />
-            <Text className="text-[14px] font-medium" style={{ color: '#FF4655' }}>
-              Sign out
-            </Text>
-          </TouchableOpacity>
-        </View>
       </ScrollView>
+
+      {/* ── Edit Profile Modal ─────────────────────────── */}
+      <Modal visible={showEditModal} animationType="slide" transparent>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <TouchableOpacity
+            style={{ height: 60 + insets.top }}
+            onPress={() => setShowEditModal(false)}
+            activeOpacity={1}
+          />
+          <View
+            style={{
+              flex: 1,
+              backgroundColor: c.background,
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              overflow: 'hidden',
+            }}
+          >
+            {/* Modal Header */}
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingHorizontal: 20,
+                paddingTop: 20,
+                paddingBottom: 16,
+                borderBottomWidth: 0.5,
+                borderBottomColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
+              }}
+            >
+              <Text style={{ fontSize: 18, fontWeight: '700', color: c.textPrimary, letterSpacing: -0.3 }}>
+                Edit Profile
+              </Text>
+              <TouchableOpacity onPress={() => setShowEditModal(false)} activeOpacity={0.7}>
+                <Ionicons name="close" size={22} color={c.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 24, paddingBottom: 40 + insets.bottom }}
+              showsVerticalScrollIndicator={false}
+            >
+              {/* Avatar edit */}
+              <View style={{ alignItems: 'center', marginBottom: 32 }}>
+                <TouchableOpacity onPress={handlePickAvatar} activeOpacity={0.7} disabled={uploadingAvatar}>
+                  {uploadingAvatar ? (
+                    <View
+                      style={{
+                        width: 96,
+                        height: 96,
+                        borderRadius: 48,
+                        borderWidth: 2,
+                        borderColor: game.accent,
+                        backgroundColor: `${game.accent}18`,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <ActivityIndicator color={game.accent} />
+                    </View>
+                  ) : (
+                    renderAvatar(96, true)
+                  )}
+                </TouchableOpacity>
+                <Text style={{ fontSize: 13, color: c.textSecondary, marginTop: 8 }}>
+                  Tap to change photo
+                </Text>
+              </View>
+
+              {/* Peak Rank (must be selected first) */}
+              <TouchableOpacity
+                className="flex-row items-center justify-between px-4 py-4 rounded-2xl mb-3"
+                style={cardStyle}
+                onPress={() => { setRankPickerType('peak'); setShowRankPicker(true); }}
+                activeOpacity={0.7}
+              >
+                <View className="flex-row items-center gap-3">
+                  <Ionicons name="trophy-outline" size={18} color={c.textSecondary} />
+                  <Text className="text-[14px]" style={{ color: c.textPrimary }}>Peak Rank</Text>
+                </View>
+                {peakRankMeta ? (
+                  <View className="flex-row items-center gap-2">
+                    <Image
+                      source={{ uri: rankUrl(peakRankMeta.image) }}
+                      style={{ width: 28, height: 28 }}
+                      resizeMode="contain"
+                    />
+                    <Text className="text-[13px] font-medium" style={{ color: c.textSecondary }}>
+                      {peakRankMeta.name}
+                    </Text>
+                    <Ionicons name="chevron-forward" size={14} color={c.textTertiary} />
+                  </View>
+                ) : (
+                  <View className="flex-row items-center gap-1">
+                    <Text className="text-[13px]" style={{ color: c.textTertiary }}>Select</Text>
+                    <Ionicons name="chevron-forward" size={14} color={c.textTertiary} />
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              {/* Current Rank (disabled if no peak set) */}
+              <TouchableOpacity
+                className="flex-row items-center justify-between px-4 py-4 rounded-2xl mb-3"
+                style={[cardStyle, !profile?.peak_rank && { opacity: 0.5 }]}
+                onPress={() => { setRankPickerType('current'); setShowRankPicker(true); }}
+                activeOpacity={0.7}
+                disabled={!profile?.peak_rank}
+              >
+                <View className="flex-row items-center gap-3">
+                  <Ionicons name="shield-outline" size={18} color={c.textSecondary} />
+                  <Text className="text-[14px]" style={{ color: c.textPrimary }}>Current Rank</Text>
+                </View>
+                {currentRankMeta ? (
+                  <View className="flex-row items-center gap-2">
+                    <Image
+                      source={{ uri: rankUrl(currentRankMeta.image) }}
+                      style={{ width: 28, height: 28 }}
+                      resizeMode="contain"
+                    />
+                    <Text className="text-[13px] font-medium" style={{ color: c.textSecondary }}>
+                      {currentRankMeta.name}
+                    </Text>
+                    <Ionicons name="chevron-forward" size={14} color={c.textTertiary} />
+                  </View>
+                ) : (
+                  <View className="flex-row items-center gap-1">
+                    <Text className="text-[13px]" style={{ color: c.textTertiary }}>
+                      {profile?.peak_rank ? 'Select' : 'Set peak rank first'}
+                    </Text>
+                    <Ionicons name="chevron-forward" size={14} color={c.textTertiary} />
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              {/* Main Agent */}
+              <TouchableOpacity
+                className="flex-row items-center justify-between px-4 py-4 rounded-2xl"
+                style={cardStyle}
+                onPress={() => setShowAgentPicker(true)}
+                activeOpacity={0.7}
+              >
+                <View className="flex-row items-center gap-3">
+                  <Ionicons name="person-outline" size={18} color={c.textSecondary} />
+                  <Text className="text-[14px]" style={{ color: c.textPrimary }}>Main Agent</Text>
+                </View>
+                {mainAgentMeta ? (
+                  <View className="flex-row items-center gap-2">
+                    <Image
+                      source={{ uri: agentUrl(mainAgentMeta.image, mainAgentMeta.role) }}
+                      style={{ width: 28, height: 28 }}
+                      resizeMode="contain"
+                    />
+                    <Text className="text-[13px] font-medium" style={{ color: c.textSecondary }}>
+                      {mainAgentMeta.name}
+                    </Text>
+                    <Ionicons name="chevron-forward" size={14} color={c.textTertiary} />
+                  </View>
+                ) : (
+                  <View className="flex-row items-center gap-1">
+                    <Text className="text-[13px]" style={{ color: c.textTertiary }}>Select</Text>
+                    <Ionicons name="chevron-forward" size={14} color={c.textTertiary} />
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              {/* Platform toggle (only for multiplatform games) */}
+              {isMultiplatform && (
+                <>
+                  <Text
+                    style={{
+                      fontSize: 11,
+                      fontWeight: '700',
+                      textTransform: 'uppercase',
+                      letterSpacing: 3,
+                      color: c.textTertiary,
+                      marginTop: 24,
+                      marginBottom: 12,
+                    }}
+                  >
+                    Platform
+                  </Text>
+                  <View style={{ flexDirection: 'row', gap: 10 }}>
+                    {([
+                      { value: 'pc' as Platform, label: 'PC', icon: 'desktop-outline' as const },
+                      { value: 'console' as Platform, label: 'Console', icon: 'game-controller-outline' as const },
+                    ]).map((p) => {
+                      const isActive = profile?.platform === p.value;
+                      return (
+                        <TouchableOpacity
+                          key={p.value}
+                          activeOpacity={0.7}
+                          onPress={async () => {
+                            if (!user || !profile) return;
+                            try {
+                              const { error } = await supabase
+                                .from('profiles')
+                                .update({ platform: p.value } as never)
+                                .eq('id', user.id);
+                              if (error) throw error;
+                              setProfile({ ...profile, platform: p.value });
+                            } catch {
+                              Alert.alert('Error', 'Failed to update platform.');
+                            }
+                          }}
+                          style={{
+                            flex: 1,
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 8,
+                            paddingVertical: 14,
+                            borderRadius: 14,
+                            borderWidth: isActive ? 2 : 1,
+                            borderColor: isActive
+                              ? game.accent
+                              : isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+                            backgroundColor: isActive
+                              ? `${game.accent}15`
+                              : isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)',
+                          }}
+                        >
+                          <Ionicons
+                            name={p.icon}
+                            size={18}
+                            color={isActive ? game.accent : c.textSecondary}
+                          />
+                          <Text
+                            style={{
+                              fontSize: 14,
+                              fontWeight: '600',
+                              color: isActive ? game.accent : c.textSecondary,
+                            }}
+                          >
+                            {p.label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Settings Modal ──────────────────────────────── */}
+      <Modal visible={showSettingsModal} animationType="slide" transparent>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <TouchableOpacity
+            style={{ height: 60 + insets.top }}
+            onPress={() => setShowSettingsModal(false)}
+            activeOpacity={1}
+          />
+          <View
+            style={{
+              flex: 1,
+              backgroundColor: c.background,
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              overflow: 'hidden',
+            }}
+          >
+            {/* Header */}
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingHorizontal: 20,
+                paddingTop: 20,
+                paddingBottom: 16,
+                borderBottomWidth: 0.5,
+                borderBottomColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
+              }}
+            >
+              <Text style={{ fontSize: 18, fontWeight: '700', color: c.textPrimary, letterSpacing: -0.3 }}>
+                Settings
+              </Text>
+              <TouchableOpacity onPress={() => setShowSettingsModal(false)} activeOpacity={0.7}>
+                <Ionicons name="close" size={22} color={c.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 24, paddingBottom: 40 + insets.bottom }}
+              showsVerticalScrollIndicator={false}
+            >
+              {/* Appearance */}
+              <Text
+                style={{
+                  fontSize: 11,
+                  fontWeight: '700',
+                  textTransform: 'uppercase',
+                  letterSpacing: 3,
+                  color: c.textTertiary,
+                  marginBottom: 12,
+                }}
+              >
+                Appearance
+              </Text>
+              <View style={{ flexDirection: 'row', gap: 10, marginBottom: 28 }}>
+                {THEME_OPTIONS.map((opt) => {
+                  const isActive = preference === opt.value;
+                  return (
+                    <TouchableOpacity
+                      key={opt.value}
+                      activeOpacity={0.7}
+                      onPress={() => setPreference(opt.value)}
+                      style={{
+                        flex: 1,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 6,
+                        paddingVertical: 12,
+                        borderRadius: 14,
+                        borderWidth: isActive ? 2 : 1,
+                        borderColor: isActive
+                          ? game.accent
+                          : isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+                        backgroundColor: isActive
+                          ? `${game.accent}15`
+                          : isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)',
+                      }}
+                    >
+                      <Ionicons
+                        name={opt.icon}
+                        size={16}
+                        color={isActive ? game.accent : c.textSecondary}
+                      />
+                      <Text
+                        style={{
+                          fontSize: 13,
+                          fontWeight: '600',
+                          color: isActive ? game.accent : c.textSecondary,
+                        }}
+                      >
+                        {opt.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* Account */}
+              <Text
+                style={{
+                  fontSize: 11,
+                  fontWeight: '700',
+                  textTransform: 'uppercase',
+                  letterSpacing: 3,
+                  color: c.textTertiary,
+                  marginBottom: 12,
+                }}
+              >
+                Account
+              </Text>
+              <View className="rounded-2xl overflow-hidden mb-6" style={cardStyle}>
+                {/* Region */}
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    paddingHorizontal: 16,
+                    paddingVertical: 14,
+                    borderBottomWidth: 0.5,
+                    borderBottomColor: dividerColor,
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <Ionicons name="globe-outline" size={18} color={c.textSecondary} />
+                    <Text style={{ fontSize: 14, color: c.textPrimary }}>Region</Text>
+                  </View>
+                  <Text style={{ fontSize: 13, fontWeight: '500', color: c.textSecondary }}>
+                    {(profile?.region ?? '—').toUpperCase()}
+                  </Text>
+                </View>
+
+                {/* Game */}
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    paddingHorizontal: 16,
+                    paddingVertical: 14,
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <Ionicons name="game-controller-outline" size={18} color={c.textSecondary} />
+                    <Text style={{ fontSize: 14, color: c.textPrimary }}>Game</Text>
+                  </View>
+                  <Text style={{ fontSize: 13, fontWeight: '500', color: c.textSecondary }}>
+                    {game.name}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Sign Out */}
+              <TouchableOpacity
+                className="flex-row items-center justify-center gap-2 rounded-xl py-3.5"
+                style={{
+                  borderWidth: 1,
+                  borderColor: 'rgba(255,59,48,0.2)',
+                  backgroundColor: 'rgba(255,59,48,0.06)',
+                }}
+                onPress={handleSignOut}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="log-out-outline" size={16} color="#FF3B30" />
+                <Text style={{ fontSize: 14, fontWeight: '600', color: '#FF3B30' }}>
+                  Sign Out
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Rank Picker Modal */}
+      <AssetPickerModal
+        visible={showRankPicker}
+        onClose={() => setShowRankPicker(false)}
+        onSelect={handleRankSelect}
+        selectedId={rankPickerType === 'current' ? profile?.current_rank ?? null : profile?.peak_rank ?? null}
+        title={rankPickerType === 'current' ? 'Current Rank' : 'Peak Rank'}
+        items={rankItems}
+        accentColor={game.accent}
+        numColumns={3}
+        firstItemCentered
+        lastItemCentered
+        disabledIds={rankPickerType === 'current' ? currentRankDisabledIds : undefined}
+      />
+
+      {/* Agent Picker Modal */}
+      <AssetPickerModal
+        visible={showAgentPicker}
+        onClose={() => setShowAgentPicker(false)}
+        onSelect={handleAgentSelect}
+        selectedId={profile?.main_agent ?? null}
+        title="Main Agent"
+        items={agentItems}
+        accentColor={game.accent}
+        numColumns={3}
+      />
     </View>
   );
 }

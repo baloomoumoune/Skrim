@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useGameStore } from '@/stores/gameStore';
 import { getAssetUrl, VALORANT_AGENTS, VALORANT_MAPS, VALORANT_RANKS } from '@/lib/game-assets';
-import type { AgentMeta, MapMeta, RankMeta } from '@/lib/game-assets';
+import type { AgentMeta, AgentRole, MapMeta, RankMeta } from '@/lib/game-assets';
 
 // ── Per-game registries ─────────────────────────────
 // Add CS2 arrays here when ready
@@ -26,7 +26,7 @@ const RANKS_BY_GAME: Record<string, RankMeta[]> = {
  *
  * @example
  *   const { agents, maps, ranks, agentUrl } = useGameAssets();
- *   <Image source={{ uri: agentUrl('jett.png') }} />
+ *   <Image source={{ uri: agentUrl('jett.png', 'duelist') }} />
  */
 export function useGameAssets() {
   const selectedGame = useGameStore((s) => s.selectedGame);
@@ -36,7 +36,8 @@ export function useGameAssets() {
     const maps = MAPS_BY_GAME[selectedGame] ?? [];
     const ranks = RANKS_BY_GAME[selectedGame] ?? [];
 
-    const agentUrl = (filename: string) => getAssetUrl(selectedGame, 'agents', filename);
+    const agentUrl = (filename: string, role: AgentRole) =>
+      getAssetUrl(selectedGame, 'agents', filename, role);
     const mapUrl = (filename: string) => getAssetUrl(selectedGame, 'maps', filename);
     const rankUrl = (filename: string) => getAssetUrl(selectedGame, 'ranks', filename);
 

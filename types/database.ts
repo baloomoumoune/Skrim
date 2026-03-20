@@ -1,7 +1,10 @@
 export type Region = 'eu' | 'na' | 'apac' | 'sa' | 'me' | 'oce';
 export type GameEnum = 'valorant' | 'cs2';
+export type Platform = 'pc' | 'console';
 export type TeamRole = 'captain' | 'player' | 'sub' | 'coach';
 export type ScrimStatus = 'open' | 'pending' | 'confirmed' | 'completed' | 'cancelled';
+export type MatchStatus = 'open' | 'full' | 'in_progress' | 'completed' | 'cancelled';
+export type MatchRequestStatus = 'pending' | 'accepted' | 'rejected';
 
 export interface Profile {
   id: string;
@@ -11,6 +14,10 @@ export interface Profile {
   region: Region;
   timezone: string;
   preferred_game: GameEnum;
+  current_rank: string | null;
+  peak_rank: string | null;
+  main_agent: string | null;
+  platform: Platform | null;
   created_at: string;
   updated_at: string;
 }
@@ -64,6 +71,40 @@ export interface Scrim {
   updated_at: string;
 }
 
+export interface Match {
+  id: string;
+  game: GameEnum;
+  creator_id: string;
+  region: Region;
+  rank_min: string;
+  rank_max: string;
+  rr_penalty: boolean;
+  current_players: number;
+  max_players: number;
+  status: MatchStatus;
+  discord_link: string | null;
+  notes: string | null;
+  platform: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MatchMember {
+  id: string;
+  match_id: string;
+  user_id: string;
+  is_ready: boolean;
+  joined_at: string;
+}
+
+export interface MatchRequest {
+  id: string;
+  match_id: string;
+  user_id: string;
+  status: MatchRequestStatus;
+  created_at: string;
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -92,6 +133,21 @@ export interface Database {
         Insert: Omit<Scrim, 'id' | 'created_at' | 'updated_at'>;
         Update: Partial<Omit<Scrim, 'id' | 'created_at' | 'updated_at'>>;
       };
+      matches: {
+        Row: Match;
+        Insert: Omit<Match, 'id' | 'created_at' | 'updated_at'>;
+        Update: Partial<Omit<Match, 'id' | 'created_at' | 'updated_at'>>;
+      };
+      match_members: {
+        Row: MatchMember;
+        Insert: Omit<MatchMember, 'id' | 'joined_at'>;
+        Update: Partial<Omit<MatchMember, 'id' | 'joined_at'>>;
+      };
+      match_requests: {
+        Row: MatchRequest;
+        Insert: Omit<MatchRequest, 'id' | 'created_at'>;
+        Update: Partial<Omit<MatchRequest, 'id' | 'created_at'>>;
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -100,6 +156,8 @@ export interface Database {
       game_enum: GameEnum;
       team_role: TeamRole;
       scrim_status: ScrimStatus;
+      match_status: MatchStatus;
+      match_request_status: MatchRequestStatus;
     };
   };
 }

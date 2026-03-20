@@ -43,6 +43,7 @@ export const GAME_ACCENTS = {
     id: 'valorant' as const,
     name: 'VALORANT',
     icon: 'V',
+    logo: 'Valorant.png',
     accent: '#FF4655',
     accentLight: 'rgba(255,70,85,0.08)',
     accentMid: 'rgba(255,70,85,0.25)',
@@ -52,6 +53,8 @@ export const GAME_ACCENTS = {
     id: 'cs2' as const,
     name: 'CS2',
     icon: 'CS',
+    logo: 'Counter-Strike2.png',
+    disabled: true,
     accent: '#DE9B35',
     accentLight: 'rgba(222,155,53,0.08)',
     accentMid: 'rgba(222,155,53,0.25)',
@@ -60,3 +63,11 @@ export const GAME_ACCENTS = {
 } as const;
 
 export type GameId = keyof typeof GAME_ACCENTS;
+
+// ── Game platform support ───────────────────────────
+// true = game available on both PC and Console (not cross-platform)
+// false = PC only
+export const GAME_MULTIPLATFORM: Record<GameId, boolean> = {
+  valorant: true,
+  cs2: false,
+};
