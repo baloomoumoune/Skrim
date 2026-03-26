@@ -13,7 +13,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from 'nativewind';
 import * as ImagePicker from 'expo-image-picker';
-import { File } from 'expo-file-system/next';
 import { useAuthStore } from '@/stores/authStore';
 import { useThemeStore, ThemePreference } from '@/stores/themeStore';
 import { useColors } from '@/hooks/useThemeColors';
@@ -23,6 +22,8 @@ import { GAME_ACCENTS, GAME_MULTIPLATFORM } from '@/lib/constants';
 import type { Platform } from '@/types/database';
 import { getDisabledRankIds } from '@/lib/game-assets';
 import { supabase } from '@/lib/supabase';
+import { useTeam } from '@/hooks/useTeam';
+import { TeamInitials } from '@/components/TeamInitials';
 import AssetPickerModal, { PickerItem } from '@/components/AssetPickerModal';
 
 const THEME_OPTIONS: { value: ThemePreference; label: string; icon: React.ComponentProps<typeof Ionicons>['name'] }[] = [
@@ -42,6 +43,7 @@ export default function ProfileScreen() {
   const game = GAME_ACCENTS[selectedGame];
   const { agents, ranks, agentUrl, rankUrl } = useGameAssets();
   const isMultiplatform = GAME_MULTIPLATFORM[selectedGame] ?? false;
+  const { team: currentTeam } = useTeam();
 
   // Modal state
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -93,16 +95,17 @@ export default function ProfileScreen() {
     try {
       const asset = result.assets[0];
       const ext = asset.uri.split('.').pop()?.split('?')[0]?.toLowerCase() ?? 'jpg';
-      const filePath = `avatars/${user.id}.${ext}`;
+      const filePath = `${user.id}.${ext}`;
 
-      // Read file as bytes using the new expo-file-system API
-      const file = new File(asset.uri);
-      const bytes = await file.bytes();
+      // Read file as arraybuffer via fetch (works in Expo Go & dev builds)
+      const response = await fetch(asset.uri);
+      const blob = await response.blob();
+      const arrayBuffer = await new Response(blob).arrayBuffer();
 
-      // Upload to Supabase Storage (game-assets bucket)
+      // Upload to Supabase Storage (avatars bucket)
       const { error: uploadError } = await supabase.storage
-        .from('game-assets')
-        .upload(filePath, bytes, {
+        .from('avatars')
+        .upload(filePath, arrayBuffer, {
           upsert: true,
           contentType: `image/${ext === 'jpg' ? 'jpeg' : ext}`,
         });
@@ -111,7 +114,7 @@ export default function ProfileScreen() {
 
       // Get the public URL
       const { data: urlData } = supabase.storage
-        .from('game-assets')
+        .from('avatars')
         .getPublicUrl(filePath);
 
       // Add cache-buster to force refresh
@@ -163,6 +166,30 @@ export default function ProfileScreen() {
         .eq('id', user.id);
       if (error) throw error;
       setProfile({ ...profile, ...updates });
+
+      // Recalculate team rank if current_rank changed
+      if ('current_rank' in updates) {
+        try {
+          const { data: memberData } = await supabase
+            .from('team_members')
+            .select('team_id, teams(game)')
+            .eq('user_id', user.id);
+
+          if (memberData) {
+            const entry = (memberData as unknown as { team_id: string; teams: { game: string } }[])
+              .find((m) => m.teams.game === selectedGame);
+            if (entry) {
+              const rankIds = ranks.map((r) => r.id);
+              await (supabase.rpc as Function)('recalculate_team_rank', {
+                p_team_id: entry.team_id,
+                p_rank_order: rankIds,
+              });
+            }
+          }
+        } catch (err) {
+          if (__DEV__) console.error('[Profile] Rank recalc error:', err);
+        }
+      }
     } catch {
       Alert.alert('Error', 'Failed to update rank.');
     }
@@ -294,13 +321,20 @@ export default function ProfileScreen() {
         contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 24, paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Profile Header: Avatar + Username */}
-        <View className="flex-row items-center gap-4 mb-5">
+        {/* Profile Header: Avatar + Username + Team */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 20 }}>
           {renderAvatar(80)}
-          <View className="flex-1">
-            <Text className="text-[22px] font-bold" style={{ color: c.textPrimary, letterSpacing: -0.5 }}>
-              {profile?.username ?? 'Unknown'}
-            </Text>
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
+              <Text className="text-[22px] font-bold" style={{ color: c.textPrimary, letterSpacing: -0.5 }}>
+                {profile?.username ?? 'Unknown'}
+              </Text>
+              {currentTeam && (
+                <Text style={{ fontSize: 14, fontWeight: '500', color: c.textTertiary }}>
+                  #{currentTeam.tag}
+                </Text>
+              )}
+            </View>
             {isMultiplatform && profile?.platform && (
               <View className="flex-row items-center gap-1.5 mt-1">
                 <Ionicons
@@ -314,6 +348,21 @@ export default function ProfileScreen() {
               </View>
             )}
           </View>
+          {currentTeam && (
+            <View style={{ alignItems: 'center', gap: 4, marginRight: 30 }}>
+              {currentTeam.logo_url ? (
+                <Image
+                  source={{ uri: currentTeam.logo_url }}
+                  style={{ width: 44, height: 44, borderRadius: 22 }}
+                />
+              ) : (
+                <TeamInitials tag={currentTeam.tag} size={44} />
+              )}
+              <Text numberOfLines={1} style={{ fontSize: 11, fontWeight: '600', color: c.textSecondary }}>
+                {currentTeam.name}
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Stats Row: Rank / Peak / Agent */}

@@ -29,6 +29,7 @@ interface MatchCreatorViewProps {
   match: Match;
   members: MatchMemberWithProfile[];
   requests: MatchRequestWithProfile[];
+  teamTags: Record<string, string>;
   refreshing: boolean;
   onRefresh: () => void;
   onAcceptRequest: (requestId: string, userId: string) => Promise<void>;
@@ -43,6 +44,7 @@ export default function MatchCreatorView({
   match,
   members,
   requests,
+  teamTags,
   refreshing,
   onRefresh,
   onAcceptRequest,
@@ -232,6 +234,7 @@ export default function MatchCreatorView({
                   textSecondary={c.textSecondary}
                   textTertiary={c.textTertiary}
                   isDark={isDark}
+                  teamTag={teamTags[member.user_id]}
                   onKick={member.user_id !== user?.id ? () => onKickMember(member.id) : undefined}
                 />
               ))
@@ -257,6 +260,7 @@ export default function MatchCreatorView({
                   textSecondary={c.textSecondary}
                   textTertiary={c.textTertiary}
                   isDark={isDark}
+                  teamTag={teamTags[req.user_id]}
                   onAccept={() => onAcceptRequest(req.id, req.user_id)}
                   onReject={() => onRejectRequest(req.id)}
                 />

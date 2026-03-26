@@ -28,6 +28,7 @@ import MemberRow from './MemberRow';
 interface MatchPlayerViewProps {
   match: Match;
   members: MatchMemberWithProfile[];
+  teamTags: Record<string, string>;
   myMembership: MatchMember | null;
   myRequest: MatchRequest | null;
   refreshing: boolean;
@@ -41,6 +42,7 @@ interface MatchPlayerViewProps {
 export default function MatchPlayerView({
   match,
   members,
+  teamTags,
   myMembership,
   myRequest,
   refreshing,
@@ -213,6 +215,7 @@ export default function MatchPlayerView({
                 textSecondary={c.textSecondary}
                 textTertiary={c.textTertiary}
                 isDark={isDark}
+                teamTag={teamTags[member.user_id]}
               />
             ))
           )}

@@ -5,6 +5,7 @@ export type TeamRole = 'captain' | 'player' | 'sub' | 'coach';
 export type ScrimStatus = 'open' | 'pending' | 'confirmed' | 'completed' | 'cancelled';
 export type MatchStatus = 'open' | 'full' | 'in_progress' | 'completed' | 'cancelled';
 export type MatchRequestStatus = 'pending' | 'accepted' | 'rejected';
+export type TeamInviteStatus = 'pending' | 'accepted' | 'rejected';
 
 export interface Profile {
   id: string;
@@ -109,9 +110,21 @@ export interface MatchRequest {
   created_at: string;
 }
 
+export interface TeamInvite {
+  id: string;
+  team_id: string;
+  invited_user_id: string;
+  invited_by: string;
+  status: TeamInviteStatus;
+  created_at: string;
+  updated_at: string;
+}
+
 // Composite types for joined queries
 export type MatchMemberWithProfile = MatchMember & { profile: Profile };
 export type MatchRequestWithProfile = MatchRequest & { profile: Profile };
+export type TeamMemberWithProfile = TeamMember & { profile: Profile };
+export type TeamInviteWithTeam = TeamInvite & { team: Team; inviter: Profile };
 
 export interface Database {
   public: {
@@ -156,6 +169,11 @@ export interface Database {
         Insert: Omit<MatchRequest, 'id' | 'created_at'>;
         Update: Partial<Omit<MatchRequest, 'id' | 'created_at'>>;
       };
+      team_invites: {
+        Row: TeamInvite;
+        Insert: Omit<TeamInvite, 'id' | 'created_at' | 'updated_at' | 'status'>;
+        Update: Partial<Omit<TeamInvite, 'id' | 'created_at' | 'updated_at'>>;
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -166,6 +184,7 @@ export interface Database {
       scrim_status: ScrimStatus;
       match_status: MatchStatus;
       match_request_status: MatchRequestStatus;
+      team_invite_status: TeamInviteStatus;
     };
   };
 }

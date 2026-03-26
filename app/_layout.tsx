@@ -55,8 +55,8 @@ function useProtectedRoute() {
       return;
     }
 
-    // Allow authenticated routes: tabs + match detail
-    const inAllowedGroup = inTabsGroup || segments[0] === 'match';
+    // Allow authenticated routes: tabs + match detail + invite deep link
+    const inAllowedGroup = inTabsGroup || segments[0] === 'match' || segments[0] === 'invite';
     if (session && !needsOnboarding && !inAllowedGroup) {
       if (__DEV__) console.log('[ProtectedRoute] → tabs');
       router.replace('/(tabs)/home');

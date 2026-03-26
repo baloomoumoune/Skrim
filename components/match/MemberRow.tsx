@@ -14,6 +14,7 @@ interface MemberRowProps {
   textSecondary: string;
   textTertiary: string;
   isDark: boolean;
+  teamTag?: string | null;
   onKick?: () => void;
 }
 
@@ -26,6 +27,7 @@ export default function MemberRow({
   textSecondary,
   textTertiary,
   isDark,
+  teamTag,
   onKick,
 }: MemberRowProps) {
   const { ranks, rankUrl } = useGameAssets();
@@ -60,6 +62,9 @@ export default function MemberRow({
           <Text numberOfLines={1} style={[styles.username, { color: textPrimary }]}>
             {profile.username}
           </Text>
+          {teamTag && (
+            <Text style={[styles.teamTagText, { color: textTertiary }]}>#{teamTag}</Text>
+          )}
           {isSelf && (
             <Text style={[styles.youBadge, { color: accent }]}>(you)</Text>
           )}
@@ -132,6 +137,10 @@ const styles = StyleSheet.create({
   username: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  teamTagText: {
+    fontSize: 12,
+    fontWeight: '500',
   },
   youBadge: {
     fontSize: 11,

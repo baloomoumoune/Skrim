@@ -12,6 +12,7 @@ interface RequestRowProps {
   textSecondary: string;
   textTertiary: string;
   isDark: boolean;
+  teamTag?: string | null;
   onAccept: () => void;
   onReject: () => void;
 }
@@ -23,6 +24,7 @@ export default function RequestRow({
   textSecondary,
   textTertiary,
   isDark,
+  teamTag,
   onAccept,
   onReject,
 }: RequestRowProps) {
@@ -43,9 +45,14 @@ export default function RequestRow({
 
       {/* Info */}
       <View style={styles.info}>
-        <Text numberOfLines={1} style={[styles.username, { color: textPrimary }]}>
-          {profile.username}
-        </Text>
+        <View style={styles.nameRow}>
+          <Text numberOfLines={1} style={[styles.username, { color: textPrimary }]}>
+            {profile.username}
+          </Text>
+          {teamTag && (
+            <Text style={[styles.teamTagText, { color: textTertiary }]}>#{teamTag}</Text>
+          )}
+        </View>
         <View style={styles.detailsRow}>
           {rankImage && (
             <Image source={{ uri: rankUrl(rankImage) }} style={styles.rankIcon} contentFit="contain" />
@@ -101,9 +108,18 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 2,
   },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
   username: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  teamTagText: {
+    fontSize: 12,
+    fontWeight: '500',
   },
   detailsRow: {
     flexDirection: 'row',

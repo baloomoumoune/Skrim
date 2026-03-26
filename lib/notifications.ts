@@ -1,9 +1,16 @@
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
-import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import { supabase } from './supabase';
+
+// expo-device requires a native build — guard for Expo Go
+let Device: typeof import('expo-device') | null = null;
+try {
+  Device = require('expo-device');
+} catch {
+  if (__DEV__) console.warn('[Notifications] expo-device not available (Expo Go?), push registration disabled');
+}
 
 // Configure how notifications appear when app is in foreground
 Notifications.setNotificationHandler({
@@ -21,7 +28,7 @@ Notifications.setNotificationHandler({
  * Saves the token to the user's profile in Supabase.
  */
 export async function registerForPushNotifications(userId: string): Promise<string | null> {
-  if (!Device.isDevice) {
+  if (!Device?.isDevice) {
     if (__DEV__) console.log('[Notifications] Not a physical device, skipping push registration');
     return null;
   }

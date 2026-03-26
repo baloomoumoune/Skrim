@@ -16,6 +16,7 @@ interface UseMatchDetailReturn {
   match: Match | null;
   members: MatchMemberWithProfile[];
   requests: MatchRequestWithProfile[];
+  teamTags: Record<string, string>;
   myMembership: MatchMember | null;
   myRequest: MatchRequest | null;
   isCreator: boolean;
@@ -45,6 +46,7 @@ export function useMatchDetail(matchId: string): UseMatchDetailReturn {
   const [requests, setRequests] = useState<MatchRequestWithProfile[]>([]);
   const [myMembership, setMyMembership] = useState<MatchMember | null>(null);
   const [myRequest, setMyRequest] = useState<MatchRequest | null>(null);
+  const [teamTags, setTeamTags] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
   const isCreator = match?.creator_id === userId;
@@ -79,6 +81,7 @@ export function useMatchDetail(matchId: string): UseMatchDetailReturn {
       setMyMembership(mine as MatchMember | null);
 
       // If creator, fetch pending requests
+      let typedRequests: MatchRequestWithProfile[] = [];
       if (matchData && (matchData as Match).creator_id === userId) {
         const { data: reqData } = await supabase
           .from('match_requests')
@@ -87,7 +90,8 @@ export function useMatchDetail(matchId: string): UseMatchDetailReturn {
           .eq('status', 'pending')
           .order('created_at', { ascending: true });
 
-        setRequests((reqData ?? []) as unknown as MatchRequestWithProfile[]);
+        typedRequests = (reqData ?? []) as unknown as MatchRequestWithProfile[];
+        setRequests(typedRequests);
       } else {
         setRequests([]);
       }
@@ -106,6 +110,29 @@ export function useMatchDetail(matchId: string): UseMatchDetailReturn {
         setMyRequest((myReqData as MatchRequest | null) ?? null);
       } else {
         setMyRequest(null);
+      }
+
+      // Fetch team tags for all users in match
+      const allUserIds = [
+        ...typedMembers.map((m) => m.user_id),
+        ...typedRequests.map((r) => r.user_id),
+      ];
+      if (allUserIds.length > 0) {
+        const { data: teamData } = await supabase
+          .from('team_members')
+          .select('user_id, team:teams(tag, game)')
+          .in('user_id', allUserIds);
+
+        const matchGame = (matchData as Match).game;
+        const tags: Record<string, string> = {};
+        for (const row of (teamData ?? []) as unknown as { user_id: string; team: { tag: string; game: string } }[]) {
+          if (row.team && row.team.game === matchGame) {
+            tags[row.user_id] = row.team.tag;
+          }
+        }
+        setTeamTags(tags);
+      } else {
+        setTeamTags({});
       }
     } catch (err) {
       if (__DEV__) console.error('[useMatchDetail] Fetch error:', err);
@@ -368,6 +395,7 @@ export function useMatchDetail(matchId: string): UseMatchDetailReturn {
     match,
     members,
     requests,
+    teamTags,
     myMembership,
     myRequest,
     isCreator,

@@ -28,6 +28,7 @@ export default function MatchDetailScreen() {
     match,
     members,
     requests,
+    teamTags,
     myMembership,
     myRequest,
     isCreator,
@@ -84,6 +85,7 @@ export default function MatchDetailScreen() {
           match={match}
           members={members}
           requests={requests}
+          teamTags={teamTags}
           refreshing={refreshing}
           onRefresh={handleRefresh}
           onAcceptRequest={actions.acceptRequest}
@@ -97,6 +99,7 @@ export default function MatchDetailScreen() {
         <MatchPlayerView
           match={match}
           members={members}
+          teamTags={teamTags}
           myMembership={myMembership}
           myRequest={myRequest}
           refreshing={refreshing}
