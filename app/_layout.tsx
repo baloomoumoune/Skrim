@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Slot, useRouter, useSegments, useRootNavigationState } from 'expo-router';
+import { Stack, useRouter, useSegments, usePathname, useRootNavigationState } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { useColorScheme } from 'nativewind';
@@ -9,6 +9,10 @@ import { useSession } from '@/hooks/useSession';
 import { useAuthStore } from '@/stores/authStore';
 import { useThemeStore } from '@/stores/themeStore';
 import LoadingScreen from '@/components/LoadingScreen';
+import ActiveMatchBanner from '@/components/ActiveMatchBanner';
+import { useActiveMatch } from '@/hooks/useActiveMatch';
+import { useActiveMatchStore } from '@/stores/activeMatchStore';
+import { useNotifications } from '@/hooks/useNotifications';
 
 import '../global.css';
 
@@ -51,9 +55,11 @@ function useProtectedRoute() {
       return;
     }
 
-    if (session && !needsOnboarding && !inTabsGroup) {
+    // Allow authenticated routes: tabs + match detail
+    const inAllowedGroup = inTabsGroup || segments[0] === 'match';
+    if (session && !needsOnboarding && !inAllowedGroup) {
       if (__DEV__) console.log('[ProtectedRoute] → tabs');
-      router.replace('/(tabs)/scrims');
+      router.replace('/(tabs)/home');
       hasRedirected.current = true;
       return;
     }
@@ -66,11 +72,19 @@ function useProtectedRoute() {
 
 function InitialLayout() {
   useSession();
-  const { isLoading } = useAuthStore();
+  const { isLoading, session } = useAuthStore();
   const hasRedirected = useProtectedRoute();
   const [showLoading, setShowLoading] = useState(true);
   const splashHidden = useRef(false);
   const initTheme = useThemeStore((s) => s.initTheme);
+  const segments = useSegments();
+  const activeMatch = useActiveMatchStore((s) => s.activeMatch);
+
+  // Start polling for active match when authenticated
+  useActiveMatch();
+
+  // Register push notifications + setup listeners
+  useNotifications();
 
   useEffect(() => {
     initTheme();
@@ -87,9 +101,16 @@ function InitialLayout() {
     setShowLoading(false);
   };
 
+  // Compute bottom offset: tab bar height when in tabs group
+  const inTabs = segments[0] === '(tabs)';
+  const bannerBottomOffset = inTabs ? 90 : 20; // ~56 tab bar + 34 safe area approx
+
   return (
     <>
-      <Slot />
+      <Stack screenOptions={{ headerShown: false }} />
+      {session && activeMatch && (
+        <ActiveMatchBanner bottomOffset={bannerBottomOffset} />
+      )}
       {(isLoading || showLoading) && (
         <LoadingScreen onFinish={handleLoadingFinish} minDuration={1500} />
       )}

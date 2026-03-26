@@ -18,6 +18,7 @@ export interface Profile {
   peak_rank: string | null;
   main_agent: string | null;
   platform: Platform | null;
+  push_token: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -74,6 +75,7 @@ export interface Scrim {
 export interface Match {
   id: string;
   game: GameEnum;
+  game_mode: string;
   creator_id: string;
   region: Region;
   rank_min: string;
@@ -82,6 +84,7 @@ export interface Match {
   current_players: number;
   max_players: number;
   status: MatchStatus;
+  scheduled_at: string | null;
   discord_link: string | null;
   notes: string | null;
   platform: string | null;
@@ -94,6 +97,7 @@ export interface MatchMember {
   match_id: string;
   user_id: string;
   is_ready: boolean;
+  kicked_at: string | null;
   joined_at: string;
 }
 
@@ -104,6 +108,10 @@ export interface MatchRequest {
   status: MatchRequestStatus;
   created_at: string;
 }
+
+// Composite types for joined queries
+export type MatchMemberWithProfile = MatchMember & { profile: Profile };
+export type MatchRequestWithProfile = MatchRequest & { profile: Profile };
 
 export interface Database {
   public: {
@@ -140,7 +148,7 @@ export interface Database {
       };
       match_members: {
         Row: MatchMember;
-        Insert: Omit<MatchMember, 'id' | 'joined_at'>;
+        Insert: Omit<MatchMember, 'id' | 'joined_at' | 'kicked_at'>;
         Update: Partial<Omit<MatchMember, 'id' | 'joined_at'>>;
       };
       match_requests: {

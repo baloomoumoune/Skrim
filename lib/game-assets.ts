@@ -155,3 +155,158 @@ export function getRankImage(rankId: string, ranks: RankMeta[]): string | null {
   const rank = ranks.find((r) => r.id === rankId);
   return rank?.image ?? null;
 }
+
+// ── Game Modes ──────────────────────────────────────
+
+export type ValorantGameModeId =
+  | 'competitive'
+  | 'unrated'
+  | 'premier'
+  | 'swiftplay'
+  | 'spike_rush'
+  | 'deathmatch'
+  | 'team_deathmatch'
+  | 'escalation'
+  | 'knockout'
+  | 'skirmish_2v2'
+  | 'custom';
+
+export interface GameModeMeta {
+  id: ValorantGameModeId;
+  label: string;
+  icon: string; // Ionicons name
+  maxPlayers: number;
+  hasRank: boolean;
+  hasRrPenalty: boolean;
+  teamBased: boolean;
+  description: string;
+  lastsOptions: number[];
+}
+
+export const VALORANT_GAME_MODES: GameModeMeta[] = [
+  {
+    id: 'competitive',
+    label: 'Competitive',
+    icon: 'trophy',
+    maxPlayers: 5,
+    hasRank: true,
+    hasRrPenalty: true,
+    teamBased: true,
+    description: 'Ranked 5v5 on attack & defense',
+    lastsOptions: [1, 2, 3],
+  },
+  {
+    id: 'unrated',
+    label: 'Unrated',
+    icon: 'game-controller',
+    maxPlayers: 5,
+    hasRank: true,
+    hasRrPenalty: false,
+    teamBased: true,
+    description: 'Casual 5v5, no rank impact',
+    lastsOptions: [1, 2, 3],
+  },
+  {
+    id: 'premier',
+    label: 'Premier',
+    icon: 'shield',
+    maxPlayers: 5,
+    hasRank: true,
+    hasRrPenalty: true,
+    teamBased: true,
+    description: 'Team-based competitive league',
+    lastsOptions: [1, 2, 3, 4],
+  },
+  {
+    id: 'swiftplay',
+    label: 'Swiftplay',
+    icon: 'flash',
+    maxPlayers: 5,
+    hasRank: false,
+    hasRrPenalty: false,
+    teamBased: true,
+    description: 'Shorter matches, faster rounds',
+    lastsOptions: [1, 2, 3],
+  },
+  {
+    id: 'knockout',
+    label: 'Knockout',
+    icon: 'bonfire',
+    maxPlayers: 5,
+    hasRank: false,
+    hasRrPenalty: false,
+    teamBased: true,
+    description: 'Win-or-go-home elimination rounds',
+    lastsOptions: [1, 2, 3],
+  },
+  {
+    id: 'spike_rush',
+    label: 'Spike Rush',
+    icon: 'flash-outline',
+    maxPlayers: 5,
+    hasRank: false,
+    hasRrPenalty: false,
+    teamBased: true,
+    description: 'Fast-paced with random loadouts',
+    lastsOptions: [1, 2, 3],
+  },
+  {
+    id: 'team_deathmatch',
+    label: 'Team Deathmatch',
+    icon: 'skull',
+    maxPlayers: 5,
+    hasRank: false,
+    hasRrPenalty: false,
+    teamBased: true,
+    description: '5v5 frag fest, first to win',
+    lastsOptions: [1, 2, 3],
+  },
+  {
+    id: 'escalation',
+    label: 'Escalation',
+    icon: 'trending-up',
+    maxPlayers: 5,
+    hasRank: false,
+    hasRrPenalty: false,
+    teamBased: true,
+    description: 'Team gun game, cycle weapons',
+    lastsOptions: [1, 2, 3],
+  },
+  {
+    id: 'skirmish_2v2',
+    label: 'Skirmish 2v2',
+    icon: 'people',
+    maxPlayers: 2,
+    hasRank: false,
+    hasRrPenalty: false,
+    teamBased: true,
+    description: '2v2 close-quarters duels',
+    lastsOptions: [1],
+  },
+  {
+    id: 'deathmatch',
+    label: 'Deathmatch',
+    icon: 'skull-outline',
+    maxPlayers: 1,
+    hasRank: false,
+    hasRrPenalty: false,
+    teamBased: false,
+    description: 'Free-for-all warm-up',
+    lastsOptions: [],
+  },
+  {
+    id: 'custom',
+    label: 'Custom',
+    icon: 'settings',
+    maxPlayers: 5,
+    hasRank: false,
+    hasRrPenalty: false,
+    teamBased: true,
+    description: 'Custom rules, your lobby',
+    lastsOptions: [1, 2, 3, 4],
+  },
+];
+
+export function getGameModeById(id: string): GameModeMeta | undefined {
+  return VALORANT_GAME_MODES.find((m) => m.id === id);
+}

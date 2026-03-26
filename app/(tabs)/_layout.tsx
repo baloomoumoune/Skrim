@@ -16,7 +16,8 @@ interface TabConfig {
 }
 
 const TAB_CONFIG: TabConfig[] = [
-  { name: 'scrims', title: 'Scrims', icon: 'flash', iconOutline: 'flash-outline' },
+  { name: 'home', title: 'Home', icon: 'flash', iconOutline: 'flash-outline' },
+  { name: 'scrims', title: 'Scrims', icon: 'trophy', iconOutline: 'trophy-outline' },
   { name: 'team', title: 'Team', icon: 'people', iconOutline: 'people-outline' },
   { name: 'calendar', title: 'Calendar', icon: 'calendar', iconOutline: 'calendar-outline' },
   { name: 'profile', title: 'Profile', icon: 'person', iconOutline: 'person-outline' },
