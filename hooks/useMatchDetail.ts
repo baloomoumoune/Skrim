@@ -198,37 +198,20 @@ export function useMatchDetail(matchId: string): UseMatchDetailReturn {
   }, [myRequest, refresh]);
 
   const acceptRequest = useCallback(
-    async (requestId: string, requestUserId: string) => {
+    async (requestId: string, _requestUserId: string) => {
       if (!match) return;
 
-      // Update request status
-      const { error: reqErr } = await supabase
-        .from('match_requests')
-        .update({ status: 'accepted' } as never)
-        .eq('id', requestId);
+      // Atomic accept: updates request, inserts member, recalculates count via trigger
+      const { error } = await (supabase.rpc as Function)('accept_match_request', {
+        p_request_id: requestId,
+        p_match_id: matchId,
+      });
 
-      if (reqErr) {
-        Alert.alert('Error', 'Failed to accept request.');
+      if (error) {
+        if (__DEV__) console.error('[useMatchDetail] Accept request error:', error);
+        Alert.alert('Error', error.message ?? 'Failed to accept request.');
         return;
       }
-
-      // Add as member
-      const { error: memErr } = await supabase
-        .from('match_members')
-        .insert({ match_id: matchId, user_id: requestUserId, is_ready: false } as never);
-
-      if (memErr) {
-        if (__DEV__) console.error('[useMatchDetail] Member insert error:', memErr);
-      }
-
-      // Update player count + status
-      const newCount = match.current_players + 1;
-      const newStatus = newCount >= match.max_players ? 'full' : match.status;
-
-      await supabase
-        .from('matches')
-        .update({ current_players: newCount, status: newStatus } as never)
-        .eq('id', matchId);
 
       await refresh();
     },
@@ -256,6 +239,7 @@ export function useMatchDetail(matchId: string): UseMatchDetailReturn {
     async (memberId: string) => {
       if (!match) return;
 
+      // Set kicked_at — the DB trigger auto-recalculates current_players and status
       const { error: kickErr } = await supabase
         .from('match_members')
         .update({ kicked_at: new Date().toISOString() } as never)
@@ -265,12 +249,6 @@ export function useMatchDetail(matchId: string): UseMatchDetailReturn {
         Alert.alert('Error', 'Failed to kick member.');
         return;
       }
-
-      const newCount = Math.max(match.current_players - 1, 1);
-      await supabase
-        .from('matches')
-        .update({ current_players: newCount, status: 'open' } as never)
-        .eq('id', matchId);
 
       await refresh();
     },
@@ -341,7 +319,7 @@ export function useMatchDetail(matchId: string): UseMatchDetailReturn {
   const leaveMatch = useCallback(async () => {
     if (!myMembership || !match) return;
 
-    // Soft-delete membership
+    // Soft-delete membership — the DB trigger auto-recalculates current_players and status
     const { error: leaveErr } = await supabase
       .from('match_members')
       .update({ kicked_at: new Date().toISOString() } as never)
@@ -351,15 +329,6 @@ export function useMatchDetail(matchId: string): UseMatchDetailReturn {
       Alert.alert('Error', 'Failed to leave match.');
       return;
     }
-
-    const newCount = Math.max(match.current_players - 1, 1);
-    await supabase
-      .from('matches')
-      .update({
-        current_players: newCount,
-        status: newCount < match.max_players ? 'open' : match.status,
-      } as never)
-      .eq('id', matchId);
 
     router.back();
   }, [myMembership, match, matchId, router]);

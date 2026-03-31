@@ -136,14 +136,6 @@ export const VALORANT_RANKS: RankMeta[] = [
   ...rankEntry('Radiant', 0),
 ];
 
-/** Returns rank IDs that are strictly above the given peak rank in hierarchy */
-export function getDisabledRankIds(peakRankId: string | null, ranks: RankMeta[]): string[] {
-  if (!peakRankId) return ranks.map((r) => r.id);
-  const peakIdx = ranks.findIndex((r) => r.id === peakRankId);
-  if (peakIdx === -1) return [];
-  return ranks.filter((_, i) => i > peakIdx).map((r) => r.id);
-}
-
 /** Extracts the general rank name from a rank ID: 'gold_1' → 'Gold', 'radiant' → 'Radiant' */
 export function getRankLabel(rankId: string): string {
   const base = rankId.split('_')[0];

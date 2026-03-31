@@ -199,7 +199,7 @@ export default function CreateTeamModal({ visible, onClose, onCreated }: CreateT
         game: teamGame,
         region: teamRegion,
         description: description.trim() || null,
-        captain_id: user.id,
+        president_id: user.id,
         rank_tier: profile.current_rank,
         logo_url: null as string | null,
       };
@@ -214,10 +214,10 @@ export default function CreateTeamModal({ visible, onClose, onCreated }: CreateT
 
       const team = data as Team;
 
-      // Add captain as member (ignore duplicate if a DB trigger already inserted it)
+      // Add president as member (ignore duplicate if a DB trigger already inserted it)
       const { error: memberError } = await supabase
         .from('team_members')
-        .insert({ team_id: team.id, user_id: user.id, role: 'captain' } as never);
+        .insert({ team_id: team.id, user_id: user.id, role: 'president' } as never);
 
       if (memberError && memberError.code !== '23505') {
         console.error('[CreateTeam] Member insert error:', memberError);

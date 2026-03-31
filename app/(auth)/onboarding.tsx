@@ -1,48 +1,51 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   Alert,
-  ActivityIndicator,
   ScrollView,
-  Image,
-  Dimensions,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
 } from 'react-native';
+import { MotiView, AnimatePresence } from 'moti';
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from 'nativewind';
-import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/authStore';
 import { useGameStore } from '@/stores/gameStore';
 import { useBaseColors } from '@/hooks/useThemeColors';
-import { Region, GameEnum, Platform, Profile } from '@/types/database';
+import { Region, GameEnum, Profile } from '@/types/database';
+import type { Platform as PlatformType } from '@/types/database';
 import { GAME_MULTIPLATFORM } from '@/lib/constants';
 import {
-  getAssetUrl,
-  getDisabledRankIds,
   VALORANT_RANKS,
   VALORANT_AGENTS,
 } from '@/lib/game-assets';
 import type { RankMeta, AgentMeta } from '@/lib/game-assets';
-import LoadingScreen from '@/components/LoadingScreen';
 
-const REGIONS: { value: Region; label: string; flag: string }[] = [
-  { value: 'eu', label: 'EU', flag: '🇪🇺' },
-  { value: 'na', label: 'NA', flag: '🇺🇸' },
-  { value: 'apac', label: 'APAC', flag: '🌏' },
-  { value: 'sa', label: 'SA', flag: '🇧🇷' },
-  { value: 'me', label: 'ME', flag: '🇸🇦' },
-  { value: 'oce', label: 'OCE', flag: '🇦🇺' },
-];
+import ProgressBar from '@/components/onboarding/ProgressBar';
+import StepProfile from '@/components/onboarding/StepProfile';
+import StepGame from '@/components/onboarding/StepGame';
+import StepPlatform from '@/components/onboarding/StepPlatform';
+import StepRank from '@/components/onboarding/StepRank';
+import StepAgent from '@/components/onboarding/StepAgent';
+import WelcomeScreen from '@/components/onboarding/WelcomeScreen';
+import { useUsernameCheck } from '@/components/onboarding/useUsernameCheck';
 
-const GAMES: { value: GameEnum; label: string; color: string }[] = [
-  { value: 'valorant', label: 'VALORANT', color: '#FF4655' },
-  { value: 'cs2', label: 'CS2', color: '#DE9B35' },
-];
+type StepId = 'profile' | 'game' | 'platform' | 'rank' | 'agent' | 'welcome';
 
-// Assets per game (CS2 empty for now)
+const STEP_META: Record<StepId, { title: string; subtitle: string }> = {
+  profile: { title: 'Your profile', subtitle: 'Set up your identity on SCRIM' },
+  game: { title: 'Choose your game', subtitle: 'Select the game you play the most' },
+  platform: { title: 'Choose your platform', subtitle: 'How do you play?' },
+  rank: { title: 'Select your rank', subtitle: 'Tell us about your competitive level' },
+  agent: { title: 'Pick your agent', subtitle: 'Choose the character you main' },
+  welcome: { title: '', subtitle: '' },
+};
+
 const RANKS_BY_GAME: Record<string, RankMeta[]> = {
   valorant: VALORANT_RANKS,
 };
@@ -50,150 +53,6 @@ const RANKS_BY_GAME: Record<string, RankMeta[]> = {
 const AGENTS_BY_GAME: Record<string, AgentMeta[]> = {
   valorant: VALORANT_AGENTS,
 };
-
-const ROLE_LABELS: Record<string, string> = {
-  duelist: 'Duelists',
-  initiator: 'Initiators',
-  controller: 'Controllers',
-  sentinel: 'Sentinels',
-};
-
-/** Renders a 3-column rank grid with Radiant centered on its own row */
-function RankGrid({
-  label,
-  ranks,
-  selectedId,
-  onSelect,
-  cellWidth,
-  gap,
-  gameColor,
-  game,
-  isDark,
-  textTertiary,
-  disabledIds = [],
-}: {
-  label: string;
-  ranks: RankMeta[];
-  selectedId: string | null;
-  onSelect: (id: string) => void;
-  cellWidth: number;
-  gap: number;
-  gameColor: string;
-  game: string;
-  isDark: boolean;
-  textTertiary: string;
-  disabledIds?: string[];
-}) {
-  const unranked = ranks.find((r) => r.id === 'unranked') ?? null;
-  const radiant = ranks.find((r) => r.id === 'radiant') ?? null;
-  const tiered = ranks.filter((r) => r.id !== 'unranked' && r.id !== 'radiant');
-
-  const renderSingleItem = (r: RankMeta) => {
-    const isActive = selectedId === r.id;
-    const isDisabled = disabledIds.includes(r.id);
-    return (
-      <View key={r.id} style={{ alignItems: 'center', marginVertical: gap / 2, opacity: isDisabled ? 0.3 : 1 }}>
-        <TouchableOpacity
-          activeOpacity={0.7}
-          onPress={() => onSelect(r.id)}
-          disabled={isDisabled}
-          style={{
-            width: cellWidth,
-            alignItems: 'center',
-            paddingVertical: 8,
-            borderRadius: 14,
-            borderWidth: isActive ? 1.5 : 1,
-            borderColor: isActive
-              ? gameColor
-              : isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
-            backgroundColor: isActive
-              ? `${gameColor}15`
-              : isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)',
-          }}
-        >
-          <Image
-            source={{ uri: getAssetUrl(game, 'ranks', r.image) }}
-            style={{ width: 36, height: 36 }}
-            resizeMode="contain"
-          />
-          <Text
-            numberOfLines={1}
-            style={{
-              fontSize: 10,
-              fontWeight: '600',
-              marginTop: 3,
-              color: isActive ? gameColor : textTertiary,
-            }}
-          >
-            {r.name}
-          </Text>
-        </TouchableOpacity>
-      </View>
-    );
-  };
-
-  return (
-    <>
-      <Text
-        className="text-[11px] font-bold uppercase tracking-[3px] mb-3 mt-8"
-        style={{ color: textTertiary }}
-      >
-        {label}
-      </Text>
-
-      {/* Unranked — centered alone */}
-      {unranked && renderSingleItem(unranked)}
-
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap }}>
-        {tiered.map((r) => {
-          const isActive = selectedId === r.id;
-          const isDisabled = disabledIds.includes(r.id);
-          return (
-            <TouchableOpacity
-              key={r.id}
-              activeOpacity={0.7}
-              onPress={() => onSelect(r.id)}
-              disabled={isDisabled}
-              style={{
-                width: cellWidth,
-                alignItems: 'center',
-                paddingVertical: 8,
-                borderRadius: 14,
-                opacity: isDisabled ? 0.3 : 1,
-                borderWidth: isActive ? 1.5 : 1,
-                borderColor: isActive
-                  ? gameColor
-                  : isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
-                backgroundColor: isActive
-                  ? `${gameColor}15`
-                  : isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)',
-              }}
-            >
-              <Image
-                source={{ uri: getAssetUrl(game, 'ranks', r.image) }}
-                style={{ width: 36, height: 36 }}
-                resizeMode="contain"
-              />
-              <Text
-                numberOfLines={1}
-                style={{
-                  fontSize: 10,
-                  fontWeight: '600',
-                  marginTop: 3,
-                  color: isActive ? gameColor : textTertiary,
-                }}
-              >
-                {r.name}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-      {/* Radiant — centered alone */}
-      {radiant && renderSingleItem(radiant)}
-    </>
-  );
-}
 
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
@@ -203,439 +62,469 @@ export default function OnboardingScreen() {
   const { user, setProfile, signOut } = useAuthStore();
   const setSelectedGame = useGameStore((s) => s.setSelectedGame);
 
+  // State
+  const [stepIndex, setStepIndex] = useState(0);
+  const [direction, setDirection] = useState<'forward' | 'back'>('forward');
   const [username, setUsername] = useState('');
   const [region, setRegion] = useState<Region>('eu');
   const [game, setGame] = useState<GameEnum>('valorant');
+  const [platform, setPlatform] = useState<PlatformType | null>(null);
   const [currentRank, setCurrentRank] = useState<string | null>(null);
-  const [peakRank, setPeakRank] = useState<string | null>(null);
   const [mainAgent, setMainAgent] = useState<string | null>(null);
-  const [platform, setPlatform] = useState<Platform | null>(null);
+  const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const savedProfileRef = useRef<Profile | null>(null);
+  const scrollRef = useRef<ScrollView>(null);
 
-  const selectedGameColor = GAMES.find((g) => g.value === game)?.color ?? c.accent;
+  const { status: usernameStatus, checkUsername } = useUsernameCheck();
+
+  // Dynamic steps based on game multiplatform support
+  const isMultiplatform = GAME_MULTIPLATFORM[game] ?? false;
+  const steps: StepId[] = useMemo(() => {
+    const base: StepId[] = ['profile', 'game'];
+    if (isMultiplatform) base.push('platform');
+    base.push('rank', 'agent', 'welcome');
+    return base;
+  }, [isMultiplatform]);
+
+  const currentStepId = steps[stepIndex];
+  const totalSteps = steps.length;
+
+  // Derived data
   const gameRanks = RANKS_BY_GAME[game] ?? [];
   const gameAgents = AGENTS_BY_GAME[game] ?? [];
-  const hasGameAssets = gameRanks.length > 0;
-  const isMultiplatform = GAME_MULTIPLATFORM[game] ?? false;
 
-  // Group agents by role
-  const agentGroups: { role: string; agents: AgentMeta[] }[] = [];
-  if (gameAgents.length > 0) {
-    const roleMap = new Map<string, AgentMeta[]>();
-    for (const agent of gameAgents) {
-      if (!roleMap.has(agent.role)) roleMap.set(agent.role, []);
-      roleMap.get(agent.role)!.push(agent);
-    }
-    for (const [role, roleAgents] of roleMap) {
-      agentGroups.push({ role, agents: roleAgents });
-    }
-  }
+  // Username handler
+  const handleUsernameChange = useCallback(
+    (text: string) => {
+      setUsername(text);
+      checkUsername(text);
+    },
+    [checkUsername],
+  );
 
-  // Ranks above peak rank are disabled for current rank selection
-  const currentRankDisabledIds = peakRank === null
-    ? gameRanks.map((r) => r.id)
-    : getDisabledRankIds(peakRank, gameRanks);
-
-  const handlePeakRankSelect = (id: string) => {
-    setPeakRank(id);
-    if (id === 'unranked') {
-      setCurrentRank('unranked');
-    } else if (currentRank && currentRank !== 'unranked') {
-      const currentIdx = gameRanks.findIndex((r) => r.id === currentRank);
-      const peakIdx = gameRanks.findIndex((r) => r.id === id);
-      if (currentIdx > peakIdx) {
-        setCurrentRank(null);
-      }
-    }
-  };
-
-  const canContinue =
-    username.trim().length >= 3 &&
-    (!hasGameAssets || (currentRank !== null && peakRank !== null && mainAgent !== null)) &&
-    (!isMultiplatform || platform !== null);
-
-  const handleGameChange = (newGame: GameEnum) => {
+  const handleGameChange = useCallback((newGame: GameEnum) => {
     setGame(newGame);
-    // Reset selections when game changes since assets differ
     setCurrentRank(null);
-    setPeakRank(null);
     setMainAgent(null);
-    setPlatform(GAME_MULTIPLATFORM[newGame] ? null : null);
-  };
+    setPlatform(null);
+  }, []);
 
-  const onLoadingFinish = () => {
-    if (savedProfileRef.current) {
-      setProfile(savedProfileRef.current);
+  // Step validation
+  const canContinue = (() => {
+    switch (currentStepId) {
+      case 'profile':
+        return username.trim().length >= 3 && usernameStatus === 'available';
+      case 'game':
+        return true;
+      case 'platform':
+        return platform !== null;
+      case 'rank':
+        return currentRank !== null;
+      case 'agent':
+        return mainAgent !== null;
+      default:
+        return false;
+    }
+  })();
+
+  const isSkippable = currentStepId === 'rank' || currentStepId === 'agent';
+
+  // Navigation
+  const goNext = () => {
+    if (stepIndex < totalSteps - 1) {
+      setDirection('forward');
+      setStepIndex(stepIndex + 1);
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
     }
   };
 
+  const goBack = () => {
+    if (stepIndex > 0) {
+      setDirection('back');
+      setStepIndex(stepIndex - 1);
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
+    }
+  };
+
+  const handleSkip = () => {
+    if (currentStepId === 'rank') {
+      setCurrentRank(null);
+    } else if (currentStepId === 'agent') {
+      setMainAgent(null);
+    }
+    goNext();
+  };
+
+  // Save
   const handleSave = async () => {
     const trimmed = username.trim();
-    if (trimmed.length < 3) {
-      Alert.alert('Error', 'Username must be at least 3 characters.');
-      return;
-    }
-    if (hasGameAssets && (!currentRank || !peakRank || !mainAgent)) {
-      Alert.alert('Error', 'Please select your rank and main agent.');
-      return;
-    }
-    if (!user) return;
+    if (trimmed.length < 3 || !user) return;
 
     setSaving(true);
     try {
-      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      let avatarUrl: string | null = null;
 
-      const updatePayload: Partial<Profile> = {
+      // Upload avatar if picked
+      if (avatarUri) {
+        try {
+          const ext = avatarUri.split('.').pop()?.split('?')[0]?.toLowerCase() ?? 'jpg';
+          const filePath = `${user.id}.${ext}`;
+          const response = await fetch(avatarUri);
+          const blob = await response.blob();
+          const arrayBuffer = await new Response(blob).arrayBuffer();
+
+          const { error: uploadError } = await supabase.storage
+            .from('avatars')
+            .upload(filePath, arrayBuffer, {
+              upsert: true,
+              contentType: `image/${ext === 'jpg' ? 'jpeg' : ext}`,
+            });
+
+          if (uploadError) {
+            if (__DEV__) console.error('[Onboarding] Avatar upload error:', uploadError);
+          } else {
+            const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(filePath);
+            avatarUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+          }
+        } catch (err) {
+          if (__DEV__) console.error('[Onboarding] Avatar upload failed:', err);
+        }
+      }
+
+      // Upsert profile
+      const profilePayload: Record<string, unknown> = {
+        id: user.id,
         username: trimmed,
         region,
         preferred_game: game,
-        timezone,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         current_rank: currentRank,
-        peak_rank: peakRank,
         main_agent: mainAgent,
         platform: isMultiplatform ? platform : null,
       };
+      if (avatarUrl) profilePayload.avatar_url = avatarUrl;
+
+      if (__DEV__) console.log('[Onboarding] Saving profile:', profilePayload);
 
       const { data, error } = await supabase
         .from('profiles')
-        .update(updatePayload as never)
-        .eq('id', user.id)
+        .upsert(profilePayload as never, { onConflict: 'id' })
         .select()
-        .maybeSingle();
+        .single();
 
-      if (__DEV__) console.log('[Onboarding] Update result:', { data, error });
+      if (__DEV__) console.log('[Onboarding] Save result:', { data, error });
+
       if (error) throw error;
 
-      if (!data) {
-        throw new Error(
-          'Profile not found. This can happen if the database trigger failed. Please sign out and sign in again.'
-        );
-      }
-
       setSelectedGame(game);
-      if (__DEV__) console.log('[Onboarding] Profile saved, showing loading...');
-
-      setSaved(true);
-      savedProfileRef.current = data;
-    } catch (err) {
+      setProfile(data as unknown as Profile);
+    } catch (err: any) {
       console.error('[Onboarding] Save error:', err);
-      Alert.alert('Error', 'Failed to save profile. Please try again.');
+      if (err?.code === '23503') {
+        Alert.alert(
+          'Session expired',
+          'Your account was not found. Please sign in again.',
+          [{ text: 'OK', onPress: () => signOut() }],
+        );
+      } else {
+        Alert.alert('Error', 'Failed to save profile. Please try again.');
+      }
       setSaving(false);
     }
   };
 
-  if (saved) {
-    return <LoadingScreen onFinish={onLoadingFinish} minDuration={1500} />;
+  // Welcome screen — no header/footer
+  if (currentStepId === 'welcome') {
+    return (
+      <View
+        style={[
+          styles.container,
+          {
+            backgroundColor: c.background,
+            paddingTop: insets.top + 16,
+            paddingBottom: insets.bottom + 16,
+          },
+        ]}
+      >
+        <WelcomeScreen
+          username={username}
+          avatarUri={avatarUri}
+          region={region}
+          game={game}
+          currentRank={currentRank}
+          mainAgent={mainAgent}
+          platform={isMultiplatform ? platform : null}
+          agents={gameAgents}
+          ranks={gameRanks}
+          onFinish={handleSave}
+          saving={saving}
+        />
+      </View>
+    );
   }
 
-  // 3 columns with 8px gap, within 24px horizontal padding
-  const CONTENT_WIDTH = Dimensions.get('window').width - 48;
-  const COL_GAP = 8;
-  const CELL_W = (CONTENT_WIDTH - COL_GAP * 2) / 3;
+  const meta = STEP_META[currentStepId];
 
   return (
-    <View className="flex-1" style={{ backgroundColor: c.background, paddingTop: insets.top }}>
-      <ScrollView
-        contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 48, paddingBottom: 40 }}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+    <View style={[styles.container, { backgroundColor: c.background, paddingTop: insets.top }]}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        {/* Step indicator */}
-        <View className="flex-row items-center gap-2 mb-6">
-          <View className="h-1 flex-1 rounded-full" style={{ backgroundColor: selectedGameColor }} />
-          <View
-            className="h-1 flex-1 rounded-full"
-            style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }}
-          />
-        </View>
+        {/* Fixed header */}
+        <View style={styles.headerFixed}>
+          <ProgressBar currentStep={stepIndex} totalSteps={totalSteps} />
 
-        <Text
-          className="text-3xl font-bold tracking-tight mb-2"
-          style={{ color: c.textPrimary }}
-        >
-          Your profile
-        </Text>
-        <Text className="text-[15px] mb-10" style={{ color: c.textSecondary }}>
-          Set up your identity on SCRIM.
-        </Text>
-
-        {/* Username */}
-        <Text
-          className="text-[11px] font-bold uppercase tracking-[3px] mb-3"
-          style={{ color: c.textTertiary }}
-        >
-          Username
-        </Text>
-        <TextInput
-          className="rounded-xl h-14 px-4 text-[16px]"
-          style={{
-            backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
-            borderWidth: 1,
-            borderColor: username.length > 0
-              ? (username.length >= 3 ? selectedGameColor : '#FF4655')
-              : (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'),
-            color: c.textPrimary,
-          }}
-          placeholder="Choose a username"
-          placeholderTextColor={c.textTertiary}
-          value={username}
-          onChangeText={setUsername}
-          autoCapitalize="none"
-          autoCorrect={false}
-          maxLength={24}
-        />
-        {username.length > 0 && username.length < 3 && (
-          <Text className="text-xs mt-1.5" style={{ color: '#FF4655' }}>
-            Minimum 3 characters
-          </Text>
-        )}
-
-        {/* Region */}
-        <Text
-          className="text-[11px] font-bold uppercase tracking-[3px] mb-3 mt-8"
-          style={{ color: c.textTertiary }}
-        >
-          Region
-        </Text>
-        <View className="flex-row flex-wrap gap-2">
-          {REGIONS.map((r) => {
-            const isActive = region === r.value;
-            return (
-              <TouchableOpacity
-                key={r.value}
-                className="flex-row items-center gap-2 px-4 py-3 rounded-xl"
-                style={{
-                  backgroundColor: isActive
-                    ? (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)')
-                    : (isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)'),
-                  borderWidth: 1,
-                  borderColor: isActive
-                    ? c.accent
-                    : (isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'),
-                }}
-                onPress={() => setRegion(r.value)}
-                activeOpacity={0.7}
-              >
-                <Text className="text-sm">{r.flag}</Text>
-                <Text
-                  className="text-[13px] font-semibold"
-                  style={{ color: isActive ? c.textPrimary : c.textSecondary }}
-                >
-                  {r.label}
-                </Text>
+          <View style={styles.headerRow}>
+            {stepIndex > 0 ? (
+              <TouchableOpacity onPress={goBack} style={styles.backBtn} activeOpacity={0.7}>
+                <Ionicons name="arrow-back" size={22} color={c.textPrimary} />
               </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        {/* Game */}
-        <Text
-          className="text-[11px] font-bold uppercase tracking-[3px] mb-3 mt-8"
-          style={{ color: c.textTertiary }}
-        >
-          Main Game
-        </Text>
-        <View className="flex-row gap-3">
-          {GAMES.map((g) => {
-            const isActive = game === g.value;
-            return (
-              <TouchableOpacity
-                key={g.value}
-                className="flex-1 items-center py-4 rounded-xl"
-                style={{
-                  backgroundColor: isActive
-                    ? `${g.color}15`
-                    : (isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)'),
-                  borderWidth: 1.5,
-                  borderColor: isActive ? g.color : (isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'),
-                }}
-                onPress={() => handleGameChange(g.value)}
-                activeOpacity={0.7}
-              >
-                <Text
-                  className="text-[15px] font-bold tracking-wide"
-                  style={{ color: isActive ? g.color : c.textSecondary }}
-                >
-                  {g.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        {/* Platform (only for multiplatform games) */}
-        {isMultiplatform && (
-          <>
-            <Text
-              className="text-[11px] font-bold uppercase tracking-[3px] mb-3 mt-8"
-              style={{ color: c.textTertiary }}
-            >
-              Platform
-            </Text>
-            <View className="flex-row gap-3">
-              {([
-                { value: 'pc' as Platform, label: 'PC', icon: 'desktop-outline' as const },
-                { value: 'console' as Platform, label: 'Console', icon: 'game-controller-outline' as const },
-              ]).map((p) => {
-                const isActive = platform === p.value;
-                return (
-                  <TouchableOpacity
-                    key={p.value}
-                    className="flex-1 flex-row items-center justify-center gap-2 py-4 rounded-xl"
-                    style={{
-                      backgroundColor: isActive
-                        ? `${selectedGameColor}15`
-                        : (isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)'),
-                      borderWidth: 1.5,
-                      borderColor: isActive
-                        ? selectedGameColor
-                        : (isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'),
-                    }}
-                    onPress={() => setPlatform(p.value)}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons
-                      name={p.icon}
-                      size={18}
-                      color={isActive ? selectedGameColor : c.textSecondary}
-                    />
-                    <Text
-                      className="text-[15px] font-bold tracking-wide"
-                      style={{ color: isActive ? selectedGameColor : c.textSecondary }}
-                    >
-                      {p.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+            ) : (
+              <View style={styles.backBtn} />
+            )}
+            <View style={styles.headerCenter}>
+              <Text style={[styles.stepIndicator, { color: c.textTertiary }]}>
+                Step {stepIndex + 1} of {totalSteps}
+              </Text>
             </View>
-          </>
-        )}
+            <View style={styles.backBtn} />
+          </View>
 
-        {/* Ranks & Agent */}
-        {hasGameAssets && (
-          <>
-            {/* Peak Rank (must be selected first) */}
-            <RankGrid
-              label="Peak Rank"
-              ranks={gameRanks}
-              selectedId={peakRank}
-              onSelect={handlePeakRankSelect}
-              cellWidth={CELL_W}
-              gap={COL_GAP}
-              gameColor={selectedGameColor}
-              game={game}
-              isDark={isDark}
-              textTertiary={c.textTertiary}
-            />
-
-            {/* Current Rank (disabled ranks above peak) */}
-            <RankGrid
-              label="Current Rank"
-              ranks={gameRanks}
-              selectedId={currentRank}
-              onSelect={setCurrentRank}
-              cellWidth={CELL_W}
-              gap={COL_GAP}
-              gameColor={selectedGameColor}
-              game={game}
-              isDark={isDark}
-              textTertiary={c.textTertiary}
-              disabledIds={currentRankDisabledIds}
-            />
-
-            {/* Main Agent */}
-            <Text
-              className="text-[11px] font-bold uppercase tracking-[3px] mb-3 mt-8"
-              style={{ color: c.textTertiary }}
+          <AnimatePresence exitBeforeEnter>
+            <MotiView
+              key={`title-${currentStepId}`}
+              from={{ opacity: 0, translateX: direction === 'forward' ? 20 : -20 }}
+              animate={{ opacity: 1, translateX: 0 }}
+              exit={{ opacity: 0, translateX: direction === 'forward' ? -20 : 20 }}
+              transition={{ type: 'timing', duration: 250 }}
+              style={styles.titleBlock}
             >
-              Main Agent
-            </Text>
-            {agentGroups.map((group) => (
-              <View key={group.role} className="mb-4">
-                <Text
-                  className="text-[10px] font-semibold uppercase tracking-[2px] mb-2"
-                  style={{ color: c.textTertiary }}
-                >
-                  {ROLE_LABELS[group.role] ?? group.role}
-                </Text>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: COL_GAP }}>
-                  {group.agents.map((a) => {
-                    const isActive = mainAgent === a.id;
-                    return (
-                      <TouchableOpacity
-                        key={a.id}
-                        activeOpacity={0.7}
-                        onPress={() => setMainAgent(a.id)}
-                        style={{
-                          width: CELL_W,
-                          alignItems: 'center',
-                          paddingVertical: 8,
-                          borderRadius: 14,
-                          borderWidth: isActive ? 1.5 : 1,
-                          borderColor: isActive
-                            ? selectedGameColor
-                            : isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
-                          backgroundColor: isActive
-                            ? `${selectedGameColor}15`
-                            : isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)',
-                        }}
-                      >
-                        <Image
-                          source={{ uri: getAssetUrl(game, 'agents', a.image, a.role) }}
-                          style={{ width: CELL_W * 0.6, height: CELL_W * 0.6 }}
-                          resizeMode="contain"
-                        />
-                        <Text
-                          numberOfLines={1}
-                          style={{
-                            fontSize: 11,
-                            fontWeight: '600',
-                            marginTop: 4,
-                            color: isActive ? selectedGameColor : c.textTertiary,
-                          }}
-                        >
-                          {a.name}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </View>
-            ))}
-          </>
-        )}
+              <Text style={[styles.title, { color: c.textPrimary }]}>
+                {meta.title}
+              </Text>
+              <Text style={[styles.subtitle, { color: c.textSecondary }]}>
+                {meta.subtitle}
+              </Text>
+            </MotiView>
+          </AnimatePresence>
+        </View>
 
-        {/* Continue */}
-        <TouchableOpacity
-          className={`mt-12 h-14 rounded-2xl items-center justify-center ${saving || !canContinue ? 'opacity-50' : ''}`}
-          style={{ backgroundColor: selectedGameColor }}
-          onPress={handleSave}
-          disabled={saving || !canContinue}
-          activeOpacity={0.85}
+        {/* Scrollable content */}
+        <ScrollView
+          ref={scrollRef}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
-          {saving ? (
-            <ActivityIndicator color="#FFFFFF" size="small" />
-          ) : (
-            <Text className="text-[15px] font-bold tracking-wide" style={{ color: '#FFFFFF' }}>
-              Continue
-            </Text>
+          <AnimatePresence exitBeforeEnter>
+            {currentStepId === 'profile' && (
+              <MotiView
+                key="step-profile"
+                from={{ opacity: 0, translateX: direction === 'forward' ? 30 : -30 }}
+                animate={{ opacity: 1, translateX: 0 }}
+                exit={{ opacity: 0, translateX: direction === 'forward' ? -30 : 30 }}
+                transition={{ type: 'timing', duration: 280 }}
+              >
+                <StepProfile
+                  username={username}
+                  onUsernameChange={handleUsernameChange}
+                  usernameStatus={usernameStatus}
+                  region={region}
+                  onRegionChange={setRegion}
+                  avatarUri={avatarUri}
+                  onAvatarPick={setAvatarUri}
+                />
+              </MotiView>
+            )}
+
+            {currentStepId === 'game' && (
+              <MotiView
+                key="step-game"
+                from={{ opacity: 0, translateX: direction === 'forward' ? 30 : -30 }}
+                animate={{ opacity: 1, translateX: 0 }}
+                exit={{ opacity: 0, translateX: direction === 'forward' ? -30 : 30 }}
+                transition={{ type: 'timing', duration: 280 }}
+              >
+                <StepGame
+                  selectedGame={game}
+                  onSelectGame={handleGameChange}
+                />
+              </MotiView>
+            )}
+
+            {currentStepId === 'platform' && (
+              <MotiView
+                key="step-platform"
+                from={{ opacity: 0, translateX: direction === 'forward' ? 30 : -30 }}
+                animate={{ opacity: 1, translateX: 0 }}
+                exit={{ opacity: 0, translateX: direction === 'forward' ? -30 : 30 }}
+                transition={{ type: 'timing', duration: 280 }}
+              >
+                <StepPlatform
+                  selectedPlatform={platform}
+                  onSelectPlatform={setPlatform}
+                />
+              </MotiView>
+            )}
+
+            {currentStepId === 'rank' && (
+              <MotiView
+                key="step-rank"
+                from={{ opacity: 0, translateX: direction === 'forward' ? 30 : -30 }}
+                animate={{ opacity: 1, translateX: 0 }}
+                exit={{ opacity: 0, translateX: direction === 'forward' ? -30 : 30 }}
+                transition={{ type: 'timing', duration: 280 }}
+              >
+                <StepRank
+                  currentRank={currentRank}
+                  onCurrentRankChange={setCurrentRank}
+                  game={game}
+                  ranks={gameRanks}
+                />
+              </MotiView>
+            )}
+
+            {currentStepId === 'agent' && (
+              <MotiView
+                key="step-agent"
+                from={{ opacity: 0, translateX: direction === 'forward' ? 30 : -30 }}
+                animate={{ opacity: 1, translateX: 0 }}
+                exit={{ opacity: 0, translateX: direction === 'forward' ? -30 : 30 }}
+                transition={{ type: 'timing', duration: 280 }}
+              >
+                <StepAgent
+                  selectedAgent={mainAgent}
+                  onSelectAgent={setMainAgent}
+                  game={game}
+                  agents={gameAgents}
+                />
+              </MotiView>
+            )}
+          </AnimatePresence>
+        </ScrollView>
+
+        {/* Fixed bottom */}
+        <View
+          style={[
+            styles.bottomFixed,
+            {
+              paddingBottom: insets.bottom + 12,
+              borderTopColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+            },
+          ]}
+        >
+          <MotiView
+            animate={{ opacity: canContinue ? 1 : 0.4 }}
+            transition={{ type: 'timing', duration: 200 }}
+          >
+            <TouchableOpacity
+              style={[styles.continueButton, { backgroundColor: c.accent }]}
+              onPress={goNext}
+              disabled={!canContinue}
+              activeOpacity={0.85}
+            >
+              <Text style={[styles.continueText, { color: c.background }]}>
+                Continue
+              </Text>
+            </TouchableOpacity>
+          </MotiView>
+
+          {isSkippable && (
+            <TouchableOpacity
+              style={styles.skipBtn}
+              onPress={handleSkip}
+              activeOpacity={0.6}
+            >
+              <Text style={[styles.skipText, { color: c.textTertiary }]}>
+                Skip for now
+              </Text>
+            </TouchableOpacity>
           )}
-        </TouchableOpacity>
-
-        {/* Sign out escape */}
-        <TouchableOpacity
-          className="mt-5 items-center py-2"
-          onPress={() => signOut()}
-          activeOpacity={0.6}
-        >
-          <Text className="text-[13px]" style={{ color: c.textTertiary }}>
-            Sign out
-          </Text>
-        </TouchableOpacity>
-      </ScrollView>
+        </View>
+      </KeyboardAvoidingView>
     </View>
   );
 }
+
+const CONTENT_PAD = 24;
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  flex: {
+    flex: 1,
+  },
+  headerFixed: {
+    paddingHorizontal: CONTENT_PAD,
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  backBtn: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerCenter: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  stepIndicator: {
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+  titleBlock: {
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  title: {
+    fontSize: 26,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 14,
+  },
+  scrollContent: {
+    paddingHorizontal: CONTENT_PAD,
+    paddingTop: 16,
+    paddingBottom: 24,
+    flexGrow: 1,
+  },
+  bottomFixed: {
+    paddingHorizontal: CONTENT_PAD,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    gap: 8,
+  },
+  continueButton: {
+    height: 54,
+    borderRadius: 27,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  continueText: {
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  skipBtn: {
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  skipText: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+});

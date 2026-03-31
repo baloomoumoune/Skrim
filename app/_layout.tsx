@@ -30,6 +30,8 @@ function useProtectedRoute() {
   useEffect(() => {
     if (!navigationState?.key) return;
     if (isLoading) return;
+    // Defer navigation to next tick to ensure Root Layout is fully mounted
+    const timeout = setTimeout(() => {
 
     const inAuthGroup = segments[0] === '(auth)';
     const inTabsGroup = segments[0] === '(tabs)';
@@ -65,6 +67,8 @@ function useProtectedRoute() {
     }
 
     hasRedirected.current = true;
+    }, 0);
+    return () => clearTimeout(timeout);
   }, [session, isLoading, profile, segments, navigationState?.key, router]);
 
   return hasRedirected;

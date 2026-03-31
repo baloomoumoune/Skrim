@@ -12,7 +12,7 @@ export function useTeam() {
   const { setCurrentTeam, clearTeam } = useTeamStore();
   const [loading, setLoading] = useState(true);
 
-  const fetchTeam = useCallback(async () => {
+  const fetchTeam = useCallback(async (signal?: { cancelled: boolean }) => {
     if (!userId) {
       clearTeam();
       setLoading(false);
@@ -27,6 +27,8 @@ export function useTeam() {
         .from('team_members')
         .select('team_id, teams(*)')
         .eq('user_id', userId);
+
+      if (signal?.cancelled) return;
 
       if (!memberData || memberData.length === 0) {
         clearTeam();
@@ -53,23 +55,27 @@ export function useTeam() {
         .eq('team_id', team.id)
         .order('joined_at', { ascending: true });
 
+      if (signal?.cancelled) return;
+
       const members = (membersData ?? []) as unknown as TeamMemberWithProfile[];
       setCurrentTeam(team, members);
     } catch (err) {
       if (__DEV__) console.error('[useTeam] Error:', err);
-      clearTeam();
+      if (!signal?.cancelled) clearTeam();
     } finally {
-      setLoading(false);
+      if (!signal?.cancelled) setLoading(false);
     }
   }, [userId, selectedGame, setCurrentTeam, clearTeam]);
 
   useEffect(() => {
-    fetchTeam();
+    const signal = { cancelled: false };
+    fetchTeam(signal);
+    return () => { signal.cancelled = true; };
   }, [fetchTeam]);
 
   const team = useTeamStore((s) => s.currentTeam);
   const members = useTeamStore((s) => s.teamMembers);
-  const isCaptain = team?.captain_id === userId;
+  const isPresident = team?.president_id === userId;
 
-  return { team, members, loading, isCaptain, refresh: fetchTeam };
+  return { team, members, loading, isPresident, refresh: fetchTeam };
 }

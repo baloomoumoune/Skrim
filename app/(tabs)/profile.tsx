@@ -20,7 +20,6 @@ import { useGameStore } from '@/stores/gameStore';
 import { useGameAssets } from '@/hooks/useGameAssets';
 import { GAME_ACCENTS, GAME_MULTIPLATFORM } from '@/lib/constants';
 import type { Platform } from '@/types/database';
-import { getDisabledRankIds } from '@/lib/game-assets';
 import { supabase } from '@/lib/supabase';
 import { useTeam } from '@/hooks/useTeam';
 import { TeamInitials } from '@/components/TeamInitials';
@@ -49,13 +48,11 @@ export default function ProfileScreen() {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showRankPicker, setShowRankPicker] = useState(false);
-  const [rankPickerType, setRankPickerType] = useState<'current' | 'peak'>('current');
   const [showAgentPicker, setShowAgentPicker] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   // Resolve stored IDs to metadata
   const currentRankMeta = ranks.find((r) => r.id === profile?.current_rank) ?? null;
-  const peakRankMeta = ranks.find((r) => r.id === profile?.peak_rank) ?? null;
   const mainAgentMeta = agents.find((a) => a.id === profile?.main_agent) ?? null;
 
   // Build picker items
@@ -71,9 +68,6 @@ export default function ProfileScreen() {
     imageUrl: agentUrl(a.image, a.role),
     group: a.role,
   }));
-
-  // Ranks above peak rank are disabled for current rank selection
-  const currentRankDisabledIds = getDisabledRankIds(profile?.peak_rank ?? null, ranks);
 
   const handlePickAvatar = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -143,32 +137,15 @@ export default function ProfileScreen() {
     setShowRankPicker(false);
 
     try {
-      const updates: Record<string, string | null> = {};
-
-      if (rankPickerType === 'peak') {
-        updates.peak_rank = id;
-        if (id === 'unranked') {
-          updates.current_rank = 'unranked';
-        } else if (profile.current_rank) {
-          const currentIdx = ranks.findIndex((r) => r.id === profile.current_rank);
-          const newPeakIdx = ranks.findIndex((r) => r.id === id);
-          if (currentIdx > newPeakIdx) {
-            updates.current_rank = null;
-          }
-        }
-      } else {
-        updates.current_rank = id;
-      }
-
       const { error } = await supabase
         .from('profiles')
-        .update(updates as never)
+        .update({ current_rank: id } as never)
         .eq('id', user.id);
       if (error) throw error;
-      setProfile({ ...profile, ...updates });
+      setProfile({ ...profile, current_rank: id });
 
-      // Recalculate team rank if current_rank changed
-      if ('current_rank' in updates) {
+      // Recalculate team rank
+      {
         try {
           const { data: memberData } = await supabase
             .from('team_members')
@@ -389,25 +366,6 @@ export default function ProfileScreen() {
             </Text>
           </View>
 
-          {/* Peak Rank */}
-          <View className="flex-1 items-center py-3" style={{ borderRightWidth: 0.5, borderRightColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }}>
-            <Text style={{ fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1.5, color: c.textTertiary, marginBottom: 6 }}>
-              Peak
-            </Text>
-            {peakRankMeta ? (
-              <Image
-                source={{ uri: rankUrl(peakRankMeta.image) }}
-                style={{ width: 40, height: 40 }}
-                resizeMode="contain"
-              />
-            ) : (
-              <Ionicons name="trophy-outline" size={36} color={c.textTertiary} />
-            )}
-            <Text numberOfLines={1} style={{ fontSize: 11, fontWeight: '600', marginTop: 4, color: c.textSecondary }}>
-              {peakRankMeta?.name ?? '—'}
-            </Text>
-          </View>
-
           {/* Main Agent */}
           <View className="flex-1 items-center py-3">
             <Text style={{ fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1.5, color: c.textTertiary, marginBottom: 6 }}>
@@ -529,44 +487,12 @@ export default function ProfileScreen() {
                 </Text>
               </View>
 
-              {/* Peak Rank (must be selected first) */}
+              {/* Current Rank */}
               <TouchableOpacity
                 className="flex-row items-center justify-between px-4 py-4 rounded-2xl mb-3"
                 style={cardStyle}
-                onPress={() => { setRankPickerType('peak'); setShowRankPicker(true); }}
+                onPress={() => setShowRankPicker(true)}
                 activeOpacity={0.7}
-              >
-                <View className="flex-row items-center gap-3">
-                  <Ionicons name="trophy-outline" size={18} color={c.textSecondary} />
-                  <Text className="text-[14px]" style={{ color: c.textPrimary }}>Peak Rank</Text>
-                </View>
-                {peakRankMeta ? (
-                  <View className="flex-row items-center gap-2">
-                    <Image
-                      source={{ uri: rankUrl(peakRankMeta.image) }}
-                      style={{ width: 28, height: 28 }}
-                      resizeMode="contain"
-                    />
-                    <Text className="text-[13px] font-medium" style={{ color: c.textSecondary }}>
-                      {peakRankMeta.name}
-                    </Text>
-                    <Ionicons name="chevron-forward" size={14} color={c.textTertiary} />
-                  </View>
-                ) : (
-                  <View className="flex-row items-center gap-1">
-                    <Text className="text-[13px]" style={{ color: c.textTertiary }}>Select</Text>
-                    <Ionicons name="chevron-forward" size={14} color={c.textTertiary} />
-                  </View>
-                )}
-              </TouchableOpacity>
-
-              {/* Current Rank (disabled if no peak set) */}
-              <TouchableOpacity
-                className="flex-row items-center justify-between px-4 py-4 rounded-2xl mb-3"
-                style={[cardStyle, !profile?.peak_rank && { opacity: 0.5 }]}
-                onPress={() => { setRankPickerType('current'); setShowRankPicker(true); }}
-                activeOpacity={0.7}
-                disabled={!profile?.peak_rank}
               >
                 <View className="flex-row items-center gap-3">
                   <Ionicons name="shield-outline" size={18} color={c.textSecondary} />
@@ -586,9 +512,7 @@ export default function ProfileScreen() {
                   </View>
                 ) : (
                   <View className="flex-row items-center gap-1">
-                    <Text className="text-[13px]" style={{ color: c.textTertiary }}>
-                      {profile?.peak_rank ? 'Select' : 'Set peak rank first'}
-                    </Text>
+                    <Text className="text-[13px]" style={{ color: c.textTertiary }}>Select</Text>
                     <Ionicons name="chevron-forward" size={14} color={c.textTertiary} />
                   </View>
                 )}
@@ -886,14 +810,13 @@ export default function ProfileScreen() {
         visible={showRankPicker}
         onClose={() => setShowRankPicker(false)}
         onSelect={handleRankSelect}
-        selectedId={rankPickerType === 'current' ? profile?.current_rank ?? null : profile?.peak_rank ?? null}
-        title={rankPickerType === 'current' ? 'Current Rank' : 'Peak Rank'}
+        selectedId={profile?.current_rank ?? null}
+        title="Current Rank"
         items={rankItems}
         accentColor={game.accent}
         numColumns={3}
         firstItemCentered
         lastItemCentered
-        disabledIds={rankPickerType === 'current' ? currentRankDisabledIds : undefined}
       />
 
       {/* Agent Picker Modal */}

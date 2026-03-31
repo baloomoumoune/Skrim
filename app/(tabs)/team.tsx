@@ -29,7 +29,7 @@ export default function TeamScreen() {
   const selectedGame = useGameStore((s) => s.selectedGame);
   const game = GAME_ACCENTS[selectedGame];
 
-  const { team, members, loading, isCaptain, refresh } = useTeam();
+  const { team, members, loading, isPresident, refresh } = useTeam();
   const { invites, accept, reject, refresh: refreshInvites } = useTeamInvites();
 
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -118,7 +118,7 @@ export default function TeamScreen() {
           <TeamManagementView
             team={team}
             members={members}
-            isCaptain={isCaptain}
+            isPresident={isPresident}
             onRefresh={onRefresh}
           />
         </ScrollView>

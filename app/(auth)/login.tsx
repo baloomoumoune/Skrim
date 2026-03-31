@@ -3,13 +3,16 @@
 // - Redirect URLs : skrim://auth/callback
 
 import { useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, Alert, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
+import { MotiView } from 'moti';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useBaseColors } from '@/hooks/useThemeColors';
 import { useColorScheme } from 'nativewind';
+import SocialButton from '@/components/auth/SocialButton';
 
 type Provider = 'discord' | 'google';
 
@@ -24,6 +27,7 @@ async function getWebBrowser() {
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const [loading, setLoading] = useState<Provider | null>(null);
   const c = useBaseColors();
   const { colorScheme } = useColorScheme();
@@ -80,90 +84,207 @@ export default function LoginScreen() {
   };
 
   return (
-    <View className="flex-1" style={{ backgroundColor: c.background }}>
+    <View style={[styles.container, { backgroundColor: c.background }]}>
       <View
-        className="flex-1 px-8"
-        style={{ paddingTop: insets.top + 20, paddingBottom: insets.bottom + 16 }}
+        style={[
+          styles.content,
+          { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 20 },
+        ]}
       >
-        {/* Logo + Branding — upper section */}
-        <View className="flex-[1] items-center justify-center">
-          <Image
-            source={require('@/assets/images/skrim-logo.png')}
-            style={{ width: 100, height: 100, marginBottom: 20 }}
-            contentFit="contain"
-          />
-          <Text
-            className="text-sm tracking-[6px] uppercase"
-            style={{ color: c.textTertiary, letterSpacing: 6 }}
+        {/* Logo + Tagline — centered in upper half */}
+        <View style={styles.heroSection}>
+          <MotiView
+            from={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ type: 'spring', damping: 15, delay: 200 }}
           >
-            FIND YOUR NEXT MATCH
-          </Text>
+            <Image
+              source={require('@/assets/images/skrim-logo.png')}
+              style={styles.logo}
+              contentFit="contain"
+            />
+          </MotiView>
+
+          <MotiView
+            from={{ opacity: 0, translateY: 6 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{ type: 'timing', duration: 500, delay: 400 }}
+          >
+            <Text style={[styles.tagline, { color: c.textTertiary }]}>
+              FIND YOUR NEXT MATCH
+            </Text>
+          </MotiView>
         </View>
 
-        {/* Auth Buttons — lower section */}
-        <View className="pb-4 gap-3">
-          {/* Discord */}
-          <TouchableOpacity
-            className="flex-row items-center justify-center h-14 rounded-2xl gap-3"
-            style={{ backgroundColor: '#5865F2' }}
-            onPress={() => handleLogin('discord')}
-            disabled={loading !== null}
-            activeOpacity={0.8}
-          >
-            {loading === 'discord' ? (
-              <ActivityIndicator color="#FFFFFF" size="small" />
-            ) : (
-              <>
-                <Ionicons name="logo-discord" size={20} color="#FFFFFF" />
-                <Text className="text-white text-[15px] font-semibold tracking-wide">
-                  Continue with Discord
-                </Text>
-              </>
-            )}
-          </TouchableOpacity>
+        {/* Bottom section — OAuth icons, divider, email button, legal */}
+        <View style={styles.bottomSection}>
+          {/* Social OAuth icons row */}
+          <View style={styles.socialRow}>
+            <SocialButton
+              provider="google"
+              onPress={() => handleLogin('google')}
+              loading={loading === 'google'}
+              disabled={loading !== null}
+              delay={600}
+            />
+            <SocialButton
+              provider="apple"
+              onPress={() => {}}
+              disabled={false}
+              delay={700}
+            />
+            <SocialButton
+              provider="discord"
+              onPress={() => handleLogin('discord')}
+              loading={loading === 'discord'}
+              disabled={loading !== null}
+              delay={800}
+            />
+          </View>
 
-          {/* Google */}
-          <TouchableOpacity
-            className="flex-row items-center justify-center h-14 rounded-2xl gap-3"
-            style={{
-              backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)',
-              borderWidth: 1,
-              borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)',
-            }}
-            onPress={() => handleLogin('google')}
-            disabled={loading !== null}
-            activeOpacity={0.8}
+          {/* Divider "or" */}
+          <MotiView
+            from={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ type: 'timing', duration: 400, delay: 850 }}
+            style={styles.dividerContainer}
           >
-            {loading === 'google' ? (
-              <ActivityIndicator color={c.textPrimary} size="small" />
-            ) : (
-              <>
-                <Ionicons name="logo-google" size={18} color={c.textSecondary} />
-                <Text
-                  className="text-[15px] font-semibold tracking-wide"
-                  style={{ color: c.textPrimary }}
-                >
-                  Continue with Google
-                </Text>
-              </>
-            )}
-          </TouchableOpacity>
+            <View
+              style={[
+                styles.dividerLine,
+                {
+                  backgroundColor: isDark
+                    ? 'rgba(255,255,255,0.1)'
+                    : 'rgba(0,0,0,0.08)',
+                },
+              ]}
+            />
+            <Text style={[styles.dividerText, { color: c.textTertiary }]}>or</Text>
+            <View
+              style={[
+                styles.dividerLine,
+                {
+                  backgroundColor: isDark
+                    ? 'rgba(255,255,255,0.1)'
+                    : 'rgba(0,0,0,0.08)',
+                },
+              ]}
+            />
+          </MotiView>
 
-          {/* Divider line */}
-          <View
-            className="my-2 h-px self-stretch"
-            style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }}
-          />
-
-          {/* Legal */}
-          <Text
-            className="text-[11px] text-center leading-4"
-            style={{ color: c.textTertiary }}
+          {/* Continue with email button */}
+          <MotiView
+            from={{ opacity: 0, translateY: 12 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{ type: 'spring', damping: 18, delay: 900 }}
           >
-            By continuing, you agree to our Terms of Service{'\n'}and Privacy Policy
-          </Text>
+            <TouchableOpacity
+              style={[
+                styles.emailButton,
+                {
+                  backgroundColor: isDark ? '#FFFFFF' : '#000000',
+                },
+              ]}
+              onPress={() => router.push('/(auth)/email')}
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name="mail-outline"
+                size={20}
+                color={isDark ? '#000000' : '#FFFFFF'}
+                style={styles.emailIcon}
+              />
+              <Text
+                style={[
+                  styles.emailButtonText,
+                  { color: isDark ? '#000000' : '#FFFFFF' },
+                ]}
+              >
+                Continue with email
+              </Text>
+            </TouchableOpacity>
+          </MotiView>
+
+          {/* Legal text */}
+          <MotiView
+            from={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ type: 'timing', duration: 400, delay: 1100 }}
+          >
+            <Text style={[styles.legalText, { color: c.textTertiary }]}>
+              By continuing, you agree to our Terms of Service{'\n'}and Privacy Policy
+            </Text>
+          </MotiView>
         </View>
       </View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: 32,
+  },
+  heroSection: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logo: {
+    width: 210,
+    height: 210,
+    marginBottom: 20,
+  },
+  tagline: {
+    fontSize: 12,
+    letterSpacing: 6,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  bottomSection: {
+    paddingBottom: 8,
+    gap: 20,
+  },
+  socialRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 20,
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+  },
+  dividerText: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  emailButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 54,
+    borderRadius: 27,
+  },
+  emailIcon: {
+    marginRight: 10,
+  },
+  emailButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+  },
+  legalText: {
+    fontSize: 11,
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+});

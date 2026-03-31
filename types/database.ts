@@ -1,7 +1,7 @@
 export type Region = 'eu' | 'na' | 'apac' | 'sa' | 'me' | 'oce';
 export type GameEnum = 'valorant' | 'cs2';
 export type Platform = 'pc' | 'console';
-export type TeamRole = 'captain' | 'player' | 'sub' | 'coach';
+export type TeamRole = 'president' | 'captain' | 'player' | 'sub' | 'coach';
 export type ScrimStatus = 'open' | 'pending' | 'confirmed' | 'completed' | 'cancelled';
 export type MatchStatus = 'open' | 'full' | 'in_progress' | 'completed' | 'cancelled';
 export type MatchRequestStatus = 'pending' | 'accepted' | 'rejected';
@@ -16,7 +16,6 @@ export interface Profile {
   timezone: string;
   preferred_game: GameEnum;
   current_rank: string | null;
-  peak_rank: string | null;
   main_agent: string | null;
   platform: Platform | null;
   push_token: string | null;
@@ -33,7 +32,7 @@ export interface Team {
   region: Region;
   rank_tier: string | null;
   description: string | null;
-  captain_id: string;
+  president_id: string;
   invite_code: string;
   created_at: string;
   updated_at: string;
@@ -44,6 +43,8 @@ export interface TeamMember {
   team_id: string;
   user_id: string;
   role: TeamRole;
+  slot_index: number | null;
+  is_captain: boolean;
   joined_at: string;
 }
 

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useActiveMatchStore } from '@/stores/activeMatchStore';
 
@@ -9,6 +9,10 @@ import { useActiveMatchStore } from '@/stores/activeMatchStore';
 export function useActiveMatchRealtime(onRefresh: () => void) {
   const activeMatch = useActiveMatchStore((s) => s.activeMatch);
   const matchId = activeMatch?.id;
+
+  // Use a ref for the callback to avoid re-subscribing when the callback identity changes
+  const onRefreshRef = useRef(onRefresh);
+  onRefreshRef.current = onRefresh;
 
   useEffect(() => {
     if (!matchId) return;
@@ -25,7 +29,7 @@ export function useActiveMatchRealtime(onRefresh: () => void) {
         },
         () => {
           if (__DEV__) console.log('[Realtime:Active] Match updated');
-          onRefresh();
+          onRefreshRef.current();
         },
       )
       .on(
@@ -38,7 +42,7 @@ export function useActiveMatchRealtime(onRefresh: () => void) {
         },
         () => {
           if (__DEV__) console.log('[Realtime:Active] Members updated');
-          onRefresh();
+          onRefreshRef.current();
         },
       )
       .subscribe();
@@ -46,5 +50,5 @@ export function useActiveMatchRealtime(onRefresh: () => void) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [matchId, onRefresh]);
+  }, [matchId]); // Only re-subscribe when matchId changes
 }

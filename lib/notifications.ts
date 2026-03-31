@@ -59,25 +59,30 @@ export async function registerForPushNotifications(userId: string): Promise<stri
   }
 
   // Get Expo push token
-  const projectId = Constants.expoConfig?.extra?.eas?.projectId;
-  const tokenData = await Notifications.getExpoPushTokenAsync({
-    projectId,
-  });
-  const token = tokenData.data;
+  try {
+    const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+    const tokenData = await Notifications.getExpoPushTokenAsync({
+      projectId,
+    });
+    const token = tokenData.data;
 
-  if (__DEV__) console.log('[Notifications] Push token:', token);
+    if (__DEV__) console.log('[Notifications] Push token:', token);
 
-  // Save to profile
-  const { error } = await supabase
-    .from('profiles')
-    .update({ push_token: token } as never)
-    .eq('id', userId);
+    // Save to profile
+    const { error } = await supabase
+      .from('profiles')
+      .update({ push_token: token } as never)
+      .eq('id', userId);
 
-  if (error && __DEV__) {
-    console.error('[Notifications] Failed to save push token:', error);
+    if (error && __DEV__) {
+      console.error('[Notifications] Failed to save push token:', error);
+    }
+
+    return token;
+  } catch (err) {
+    if (__DEV__) console.warn('[Notifications] Failed to get push token (Firebase not configured?):', err);
+    return null;
   }
-
-  return token;
 }
 
 /**

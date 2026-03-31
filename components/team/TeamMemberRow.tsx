@@ -6,6 +6,7 @@ import { getRankImage } from '@/lib/game-assets';
 import type { TeamMemberWithProfile, TeamRole } from '@/types/database';
 
 const ROLE_LABELS: Record<TeamRole, string> = {
+  president: 'President',
   captain: 'Captain',
   player: 'Player',
   sub: 'Sub',
@@ -13,6 +14,7 @@ const ROLE_LABELS: Record<TeamRole, string> = {
 };
 
 const ROLE_COLORS: Record<TeamRole, string> = {
+  president: '#F59E0B',
   captain: '#F59E0B',
   player: '#3B82F6',
   sub: '#8B5CF6',
@@ -27,7 +29,7 @@ const ASSIGNABLE_ROLES: { id: TeamRole; label: string }[] = [
 
 interface TeamMemberRowProps {
   member: TeamMemberWithProfile;
-  isCaptainViewer: boolean;
+  isPresidentViewer: boolean;
   isSelf: boolean;
   accent: string;
   textPrimary: string;
@@ -40,7 +42,7 @@ interface TeamMemberRowProps {
 
 export default function TeamMemberRow({
   member,
-  isCaptainViewer,
+  isPresidentViewer,
   isSelf,
   accent,
   textPrimary,
@@ -53,7 +55,7 @@ export default function TeamMemberRow({
   const { ranks, rankUrl } = useGameAssets();
   const profile = member.profile;
   const rankImage = profile.current_rank ? getRankImage(profile.current_rank, ranks) : null;
-  const isCaptainMember = member.role === 'captain';
+  const isPresidentMember = member.role === 'president';
 
   const handleKick = () => {
     Alert.alert(
@@ -98,7 +100,7 @@ export default function TeamMemberRow({
       {/* Info */}
       <View style={styles.info}>
         <View style={styles.nameRow}>
-          {isCaptainMember && (
+          {isPresidentMember && (
             <Ionicons name="shield" size={12} color="#F59E0B" style={{ marginRight: 3 }} />
           )}
           <Text numberOfLines={1} style={[styles.username, { color: textPrimary }]}>
@@ -122,21 +124,21 @@ export default function TeamMemberRow({
 
       {/* Role badge */}
       <TouchableOpacity
-        activeOpacity={isCaptainViewer && !isCaptainMember ? 0.7 : 1}
-        onPress={isCaptainViewer && !isCaptainMember ? handleChangeRole : undefined}
-        disabled={!isCaptainViewer || isCaptainMember}
+        activeOpacity={isPresidentViewer && !isPresidentMember ? 0.7 : 1}
+        onPress={isPresidentViewer && !isPresidentMember ? handleChangeRole : undefined}
+        disabled={!isPresidentViewer || isPresidentMember}
         style={[styles.roleBadge, { backgroundColor: `${roleColor}15` }]}
       >
         <Text style={[styles.roleText, { color: roleColor }]}>
           {ROLE_LABELS[member.role]}
         </Text>
-        {isCaptainViewer && !isCaptainMember && (
+        {isPresidentViewer && !isPresidentMember && (
           <Ionicons name="chevron-down" size={10} color={roleColor} />
         )}
       </TouchableOpacity>
 
       {/* Kick button */}
-      {isCaptainViewer && !isSelf && !isCaptainMember && onKick && (
+      {isPresidentViewer && !isSelf && !isPresidentMember && onKick && (
         <TouchableOpacity activeOpacity={0.7} onPress={handleKick} style={styles.kickBtn}>
           <Ionicons name="close-circle" size={20} color="#EF4444" />
         </TouchableOpacity>
