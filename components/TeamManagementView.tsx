@@ -123,7 +123,7 @@ export default function TeamManagementView({
     try {
       const { error } = await supabase
         .from('team_members')
-        .update({ is_captain: !member.is_captain } as never)
+        .update({ is_captain: !member.is_captain })
         .eq('id', member.id);
 
       if (error) throw error;
@@ -152,7 +152,7 @@ export default function TeamManagementView({
               try {
                 const { error } = await supabase
                   .from('team_members')
-                  .update({ role: r.id, slot_index: null } as never)
+                  .update({ role: r.id, slot_index: null })
                   .eq('id', member.id);
 
                 if (error) throw error;
@@ -299,7 +299,7 @@ export default function TeamManagementView({
       <InviteModal
         visible={showInviteModal}
         teamId={team.id}
-        inviteCode={team.invite_code}
+        inviteCode={team.invite_code ?? ''}
         teamName={team.name}
         existingMemberIds={members.map((m) => m.user_id)}
         onClose={() => setShowInviteModal(false)}
