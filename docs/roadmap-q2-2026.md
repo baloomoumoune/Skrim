@@ -31,6 +31,7 @@ Ce qui manque pour atteindre la vision du North Star :
 - Feature payante v1 (Scrim+ avec boost de visibilité)
 - Enregistrement produit auprès de Riot Games
 - Préparation au lancement (App Store, Google Play, landing page)
+- Application de la charte graphique complète (définie dans `docs/design-system.md`)
 
 ## Principes de travail
 
@@ -102,6 +103,23 @@ Ajouter le concept de rôle Valorant (Duelist, Controller, Sentinel, Initiator, 
 - Filtre "Rôle manquant" dans le feed Home, activable/désactivable
 - Logique de matching qui n'exclut JAMAIS un joueur basé sur le rôle si le critère n'est pas spécifié
 - Tests manuels
+
+### Jalon 1.6 — Application de la charte graphique dans le code (semaine 4, en fin de mois)
+Implémenter le design system complet de Scrim (défini dans `docs/design-system.md`) dans le code existant. C'est le jalon qui transforme l'app "fonctionnelle mais sans identité visuelle propre" en l'app "fidèle à la charte Scrim".
+
+**Livrables** :
+- Fichier `lib/design-tokens.ts` qui centralise tous les tokens (couleurs, espacements, arrondis, durées d'animation, styles typographiques) selon les valeurs exactes documentées dans `docs/design-system.md`
+- Migration du thème actuel vers le nouveau système de tokens (suppression de toutes les valeurs hardcodées dans les composants)
+- Hook `useTheme()` qui expose les tokens adaptés au mode light/dark
+- Installation et intégration d'Inter via `@expo-google-fonts/inter` (poids 400, 500, 600 uniquement)
+- Migration d'Ionicons vers Lucide Icons via `lucide-react-native` (search + replace dans tous les composants)
+- Création des composants de base réutilisables : `<Button>`, `<Input>`, `<Card>`, `<Tag>`, `<Modal>`, `<Text>` avec variants sémantiques
+- Application du logo Scrim v1 : icône de l'app iOS/Android, splash screen, header de l'app
+- Révision visuelle de tous les écrans existants (Home, Match detail, Profile, Teams, Onboarding) pour aligner avec le nouveau design system
+- Tests manuels sur iPhone et Android pour vérifier la cohérence visuelle
+- Validation que light mode et dark mode fonctionnent tous les deux correctement
+
+**Durée estimée** : 1 semaine complète (fin avril / début mai). C'est un gros jalon parce qu'il touche quasiment tous les fichiers de l'app. Il est placé stratégiquement après les Jalons 1.1 à 1.5 pour que la base Valorant (sync, règles, resets, rôles) soit déjà en place avant qu'on touche au visuel.
 
 ## Mois 2 — Matching bidirectionnel et monétisation (mai)
 
@@ -219,7 +237,7 @@ Envoi d'un message détaillé à Riot Dev Rel présentant Scrim avec un lien Tes
 - [ ] Le compte Riot Developer est-il actif et le produit enregistré ?
 - [ ] La landing page est-elle en ligne avec un lien vers la bêta ?
 - [ ] Au moins 1 personne (hors moi) sait-elle que Scrim existe et me donne son avis régulièrement ?
-
+- [ ] La charte graphique Scrim est-elle implémentée dans le code et visible sur tous les écrans ?
 Si la réponse à la plupart est "oui", le trimestre est un succès. Pas besoin de 10 000 utilisateurs dès le début.
 
 ## Hors scope pour ce trimestre (à ne PAS faire)
