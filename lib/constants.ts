@@ -33,7 +33,20 @@ export const DARK_COLORS = {
   secondary: '#888888',
 } as const;
 
-export type ThemeColors = typeof LIGHT_COLORS;
+export interface ThemeColors {
+  background: string;
+  surface: string;
+  surfaceElevated: string;
+  border: string;
+  borderStrong: string;
+  textPrimary: string;
+  textSecondary: string;
+  textTertiary: string;
+  accent: string;
+  accentLight: string;
+  accentMid: string;
+  secondary: string;
+}
 
 // ── Game accent overrides ────────────────────────────
 // Only accent/secondary change per game — base palette stays the same
