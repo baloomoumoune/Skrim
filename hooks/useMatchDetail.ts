@@ -55,7 +55,7 @@ export function useMatchDetail(matchId: string): UseMatchDetailReturn {
         .from('match_members')
         .select('*, profile:profiles(*)')
         .eq('match_id', matchId)
-        .is('kicked_at' as string, null)
+        .is('kicked_at', null)
         .order('joined_at', { ascending: true });
 
       const typedMembers = (membersData ?? []) as unknown as MatchMemberWithProfile[];

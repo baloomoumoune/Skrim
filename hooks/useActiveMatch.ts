@@ -24,7 +24,7 @@ export function useActiveMatch() {
         .from('match_members')
         .select('match_id')
         .eq('user_id', userId)
-        .is('kicked_at' as string, null)
+        .is('kicked_at', null)
         .limit(10);
 
       if (!memberData || memberData.length === 0) {
@@ -56,7 +56,7 @@ export function useActiveMatch() {
         .from('match_members')
         .select('*, profile:profiles(*)')
         .eq('match_id', match.id)
-        .is('kicked_at' as string, null)
+        .is('kicked_at', null)
         .order('joined_at', { ascending: true });
 
       const members = (membersData ?? []) as unknown as MatchMemberWithProfile[];
