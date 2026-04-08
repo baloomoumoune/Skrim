@@ -20,11 +20,9 @@ import { useBaseColors } from '@/hooks/useThemeColors';
 import { Region, GameEnum, Profile } from '@/types/database';
 import type { Platform as PlatformType } from '@/types/database';
 import { GAME_MULTIPLATFORM } from '@/lib/constants';
-import {
-  VALORANT_RANKS,
-  VALORANT_AGENTS,
-} from '@/lib/game-assets';
-import type { RankMeta, AgentMeta } from '@/lib/game-assets';
+import { VALORANT_RANKS } from '@/lib/game-assets';
+import type { RankMeta, AgentMeta, AgentRole } from '@/lib/game-assets';
+import { useValorantDataStore } from '@/stores/valorantDataStore';
 
 import ProgressBar from '@/components/onboarding/ProgressBar';
 import StepProfile from '@/components/onboarding/StepProfile';
@@ -50,9 +48,14 @@ const RANKS_BY_GAME: Record<string, RankMeta[]> = {
   valorant: VALORANT_RANKS,
 };
 
-const AGENTS_BY_GAME: Record<string, AgentMeta[]> = {
-  valorant: VALORANT_AGENTS,
-};
+function toAgentMeta(row: { display_name: string; role_name: string; display_icon: string | null }): AgentMeta {
+  return {
+    id: row.display_name.toLowerCase().replace(/[^a-z0-9]/g, ''),
+    name: row.display_name,
+    role: row.role_name.toLowerCase() as AgentRole,
+    image: row.display_icon ?? '',
+  };
+}
 
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
@@ -61,6 +64,7 @@ export default function OnboardingScreen() {
   const isDark = colorScheme === 'dark';
   const { user, setProfile, signOut } = useAuthStore();
   const setSelectedGame = useGameStore((s) => s.setSelectedGame);
+  const storeAgents = useValorantDataStore((s) => s.agents);
 
   // State
   const [stepIndex, setStepIndex] = useState(0);
@@ -91,7 +95,7 @@ export default function OnboardingScreen() {
 
   // Derived data
   const gameRanks = RANKS_BY_GAME[game] ?? [];
-  const gameAgents = AGENTS_BY_GAME[game] ?? [];
+  const gameAgents = game === 'valorant' ? storeAgents.map(toAgentMeta) : [];
 
   // Username handler
   const handleUsernameChange = useCallback(

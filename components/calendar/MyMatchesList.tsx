@@ -16,7 +16,7 @@ import { useColors } from '@/hooks/useThemeColors';
 import { useAuthStore } from '@/stores/authStore';
 import { useGameAssets } from '@/hooks/useGameAssets';
 import { GAME_ACCENTS } from '@/lib/constants';
-import { getGameModeById, getRankImage, getRankLabel } from '@/lib/game-assets';
+import { getGameModeScrimMeta, getRankImage, getRankLabel } from '@/lib/game-assets';
 import { supabase } from '@/lib/supabase';
 import type { Match } from '@/types/database';
 
@@ -161,7 +161,7 @@ export default function MyMatchesList() {
 
   const renderItem = ({ item }: { item: Match }) => {
     const game = GAME_ACCENTS[item.game];
-    const modeConfig = getGameModeById(item.game_mode);
+    const modeConfig = getGameModeScrimMeta(item.game_mode);
     const hasRank = modeConfig?.hasRank ?? true;
     const rankMinImage = hasRank && item.rank_min ? getRankImage(item.rank_min, ranks) : null;
     const isPast = item.status === 'completed';

@@ -10,7 +10,6 @@ import {
 import { MotiView, AnimatePresence } from 'moti';
 import { useBaseColors } from '@/hooks/useThemeColors';
 import { useColorScheme } from 'nativewind';
-import { getAssetUrl } from '@/lib/game-assets';
 import type { AgentMeta, AgentRole } from '@/lib/game-assets';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -144,7 +143,7 @@ export default function StepAgent({
                 >
                   <Image
                     source={{
-                      uri: getAssetUrl(game, 'agents', agent.image, agent.role as AgentRole),
+                      uri: agent.image,
                     }}
                     style={{
                       width: CELL_W * 0.55,

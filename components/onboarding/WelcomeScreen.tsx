@@ -5,8 +5,9 @@ import { useBaseColors } from '@/hooks/useThemeColors';
 import { useColorScheme } from 'nativewind';
 import { GAME_ACCENTS } from '@/lib/constants';
 import { getAssetUrl, getGameLogoUrl } from '@/lib/game-assets';
+// getAssetUrl still used for ranks (Supabase Storage). Agent images are now CDN URLs.
 import type { Region, GameEnum, Platform } from '@/types/database';
-import type { AgentMeta, AgentRole, RankMeta } from '@/lib/game-assets';
+import type { AgentMeta, RankMeta } from '@/lib/game-assets';
 
 const REGION_FLAGS: Record<string, string> = {
   eu: '🇪🇺',
@@ -170,12 +171,7 @@ export default function WelcomeScreen({
               <View style={styles.detailItem}>
                 <Image
                   source={{
-                    uri: getAssetUrl(
-                      game,
-                      'agents',
-                      agentMeta.image,
-                      agentMeta.role as AgentRole,
-                    ),
+                    uri: agentMeta.image,
                   }}
                   style={styles.detailImage}
                   resizeMode="contain"

@@ -14,6 +14,7 @@ import ActiveMatchBanner from '@/components/ActiveMatchBanner';
 import { useActiveMatch } from '@/hooks/useActiveMatch';
 import { useActiveMatchStore } from '@/stores/activeMatchStore';
 import { useNotifications } from '@/hooks/useNotifications';
+import { useHydrateValorantData } from '@/hooks/useHydrateValorantData';
 
 import '../global.css';
 
@@ -91,6 +92,9 @@ function InitialLayout() {
 
   // Register push notifications + setup listeners
   useNotifications();
+
+  // Hydrate Valorant data from Supabase into Zustand store
+  useHydrateValorantData();
 
   useEffect(() => {
     initTheme();
