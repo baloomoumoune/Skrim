@@ -8,6 +8,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useSession } from '@/hooks/useSession';
 import { useAuthStore } from '@/stores/authStore';
 import { useThemeStore } from '@/stores/themeStore';
+import { useGameStore } from '@/stores/gameStore';
 import LoadingScreen from '@/components/LoadingScreen';
 import ActiveMatchBanner from '@/components/ActiveMatchBanner';
 import { useActiveMatch } from '@/hooks/useActiveMatch';
@@ -81,6 +82,7 @@ function InitialLayout() {
   const [showLoading, setShowLoading] = useState(true);
   const splashHidden = useRef(false);
   const initTheme = useThemeStore((s) => s.initTheme);
+  const initGame = useGameStore((s) => s.initGame);
   const segments = useSegments();
   const activeMatch = useActiveMatchStore((s) => s.activeMatch);
 
@@ -93,6 +95,10 @@ function InitialLayout() {
   useEffect(() => {
     initTheme();
   }, [initTheme]);
+
+  useEffect(() => {
+    initGame();
+  }, [initGame]);
 
   useEffect(() => {
     if (hasRedirected.current && !splashHidden.current) {
