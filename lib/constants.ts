@@ -44,6 +44,7 @@ export const GAME_ACCENTS = {
     name: 'VALORANT',
     icon: 'V',
     logo: 'Valorant.png',
+    disabled: false,
     accent: '#FF4655',
     accentLight: 'rgba(255,70,85,0.08)',
     accentMid: 'rgba(255,70,85,0.25)',
