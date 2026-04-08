@@ -133,7 +133,7 @@ export default function InviteScreen() {
         // Join new team
         const { error } = await supabase
           .from('team_members')
-          .insert({ team_id: team.id, user_id: user.id, role: 'player' } as never);
+          .insert({ team_id: team.id, user_id: user.id, role: 'player' });
 
         if (error) throw error;
 

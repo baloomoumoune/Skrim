@@ -158,7 +158,7 @@ export default function PlayerSearchModal({
           team_id: teamId,
           invited_user_id: playerId,
           invited_by: user.id,
-        } as never);
+        });
 
       if (error) throw error;
 

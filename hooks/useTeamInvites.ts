@@ -78,7 +78,7 @@ export function useTeamInvites() {
     try {
       const { error } = await supabase
         .from('team_invites')
-        .update({ status: 'rejected' } as never)
+        .update({ status: 'rejected' })
         .eq('id', inviteId);
       if (error) throw error;
       await fetchInvites();

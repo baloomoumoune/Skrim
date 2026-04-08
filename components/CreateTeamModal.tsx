@@ -206,7 +206,7 @@ export default function CreateTeamModal({ visible, onClose, onCreated }: CreateT
 
       const { data, error } = await supabase
         .from('teams')
-        .insert(payload as never)
+        .insert(payload)
         .select()
         .single();
 
@@ -217,7 +217,7 @@ export default function CreateTeamModal({ visible, onClose, onCreated }: CreateT
       // Add president as member (ignore duplicate if a DB trigger already inserted it)
       const { error: memberError } = await supabase
         .from('team_members')
-        .insert({ team_id: team.id, user_id: user.id, role: 'president' } as never);
+        .insert({ team_id: team.id, user_id: user.id, role: 'president' });
 
       if (memberError && memberError.code !== '23505') {
         console.error('[CreateTeam] Member insert error:', memberError);
@@ -252,7 +252,7 @@ export default function CreateTeamModal({ visible, onClose, onCreated }: CreateT
 
           await supabase
             .from('teams')
-            .update({ logo_url: logoUrl } as never)
+            .update({ logo_url: logoUrl })
             .eq('id', team.id);
 
           team.logo_url = logoUrl;
@@ -344,7 +344,7 @@ export default function CreateTeamModal({ visible, onClose, onCreated }: CreateT
           team_id: createdTeam.id,
           invited_user_id: playerId,
           invited_by: user.id,
-        } as never);
+        });
 
       if (error) throw error;
 

@@ -99,7 +99,7 @@ export function useMatchDetail(matchId: string): UseMatchDetailReturn {
     // Direct join — INSERT into match_members
     const { error } = await supabase
       .from('match_members')
-      .insert({ match_id: matchId, user_id: userId, is_ready: false } as never);
+      .insert({ match_id: matchId, user_id: userId, is_ready: false });
 
     if (error) {
       if (__DEV__) console.error('[useMatchDetail] Join error:', error);
@@ -119,7 +119,7 @@ export function useMatchDetail(matchId: string): UseMatchDetailReturn {
 
       const { error } = await supabase
         .from('match_members')
-        .update({ kicked_at: new Date().toISOString() } as never)
+        .update({ kicked_at: new Date().toISOString() })
         .eq('id', memberId);
 
       if (error) {
@@ -137,7 +137,7 @@ export function useMatchDetail(matchId: string): UseMatchDetailReturn {
 
     const { error } = await supabase
       .from('match_members')
-      .update({ is_ready: !myMembership.is_ready } as never)
+      .update({ is_ready: !myMembership.is_ready })
       .eq('id', myMembership.id);
 
     if (error) {
@@ -151,7 +151,7 @@ export function useMatchDetail(matchId: string): UseMatchDetailReturn {
   const deleteMatch = useCallback(async () => {
     const { error } = await supabase
       .from('matches')
-      .update({ status: 'cancelled' } as never)
+      .update({ status: 'cancelled' })
       .eq('id', matchId);
 
     if (error) {
@@ -165,7 +165,7 @@ export function useMatchDetail(matchId: string): UseMatchDetailReturn {
   const launchMatch = useCallback(async () => {
     const { error } = await supabase
       .from('matches')
-      .update({ status: 'in_progress', launched_at: new Date().toISOString() } as never)
+      .update({ status: 'in_progress', launched_at: new Date().toISOString() })
       .eq('id', matchId);
 
     if (error) {
@@ -185,7 +185,7 @@ export function useMatchDetail(matchId: string): UseMatchDetailReturn {
 
     const { error } = await supabase
       .from('match_members')
-      .update({ kicked_at: new Date().toISOString() } as never)
+      .update({ kicked_at: new Date().toISOString() })
       .eq('id', myMembership.id);
 
     if (error) {
@@ -212,7 +212,7 @@ export function useMatchDetail(matchId: string): UseMatchDetailReturn {
   const completeMatch = useCallback(async () => {
     const { error } = await supabase
       .from('matches')
-      .update({ status: 'completed' } as never)
+      .update({ status: 'completed' })
       .eq('id', matchId);
 
     if (error) {

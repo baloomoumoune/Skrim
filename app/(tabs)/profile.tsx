@@ -117,7 +117,7 @@ export default function ProfileScreen() {
       // Update profile in DB
       const { error: updateError } = await supabase
         .from('profiles')
-        .update({ avatar_url: newAvatarUrl } as never)
+        .update({ avatar_url: newAvatarUrl })
         .eq('id', user.id);
 
       if (updateError) throw updateError;
@@ -139,7 +139,7 @@ export default function ProfileScreen() {
     try {
       const { error } = await supabase
         .from('profiles')
-        .update({ current_rank: id } as never)
+        .update({ current_rank: id })
         .eq('id', user.id);
       if (error) throw error;
       setProfile({ ...profile, current_rank: id });
@@ -178,7 +178,7 @@ export default function ProfileScreen() {
     try {
       const { error } = await supabase
         .from('profiles')
-        .update({ main_agent: id } as never)
+        .update({ main_agent: id })
         .eq('id', user.id);
       if (error) throw error;
       setProfile({ ...profile, main_agent: id });
@@ -580,7 +580,7 @@ export default function ProfileScreen() {
                             try {
                               const { error } = await supabase
                                 .from('profiles')
-                                .update({ platform: p.value } as never)
+                                .update({ platform: p.value })
                                 .eq('id', user.id);
                               if (error) throw error;
                               setProfile({ ...profile, platform: p.value });

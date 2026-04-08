@@ -97,7 +97,7 @@ export default function CreateMatchModal({ visible, onClose, onCreated }: Create
           status: 'open',
           group_code: groupCode,
           platform: profile.platform ?? null,
-        } as never)
+        })
         .select()
         .single();
 
@@ -110,7 +110,7 @@ export default function CreateMatchModal({ visible, onClose, onCreated }: Create
           match_id: (matchData as { id: string }).id,
           user_id: user.id,
           is_ready: false,
-        } as never);
+        });
 
       if (memberErr) throw memberErr;
 

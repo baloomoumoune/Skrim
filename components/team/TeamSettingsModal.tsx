@@ -132,7 +132,7 @@ export default function TeamSettingsModal({
               setLoading(true);
               const { error } = await supabase
                 .from('teams')
-                .update({ president_id: newPresidentId } as never)
+                .update({ president_id: newPresidentId })
                 .eq('id', team.id);
 
               if (error) throw error;
