@@ -336,10 +336,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      accept_match_request: {
-        Args: { p_match_id: string; p_request_id: string }
-        Returns: undefined
-      }
       accept_team_invite: { Args: { p_invite_id: string }; Returns: undefined }
       check_active_match: { Args: { p_user_id: string }; Returns: boolean }
       check_email_exists: { Args: { p_email: string }; Returns: boolean }
@@ -364,10 +360,8 @@ export type Database = {
     }
     Enums: {
       game_type: "valorant" | "cs2"
-      match_request_status: "pending" | "accepted" | "rejected"
       match_status: "open" | "full" | "in_progress" | "completed" | "cancelled"
       region_type: "eu" | "na" | "apac" | "sa" | "me" | "oce"
-      scrim_status: "open" | "pending" | "confirmed" | "completed" | "cancelled"
       team_invite_status: "pending" | "accepted" | "rejected"
       team_role: "captain" | "player" | "sub" | "coach" | "president"
     }
@@ -498,10 +492,8 @@ export const Constants = {
   public: {
     Enums: {
       game_type: ["valorant", "cs2"],
-      match_request_status: ["pending", "accepted", "rejected"],
       match_status: ["open", "full", "in_progress", "completed", "cancelled"],
       region_type: ["eu", "na", "apac", "sa", "me", "oce"],
-      scrim_status: ["open", "pending", "confirmed", "completed", "cancelled"],
       team_invite_status: ["pending", "accepted", "rejected"],
       team_role: ["captain", "player", "sub", "coach", "president"],
     },
