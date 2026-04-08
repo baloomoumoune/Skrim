@@ -140,7 +140,7 @@ export default function InviteModal({
             .in('user_id', profiles.map((p) => p.id));
 
           const tagMap: Record<string, string> = {};
-          for (const row of (teamData ?? []) as unknown as { user_id: string; team: { tag: string; game: string } }[]) {
+          for (const row of (teamData ?? []) as { user_id: string; team: { tag: string; game: string } }[]) {
             if (row.team && row.team.game === selectedGame) {
               tagMap[row.user_id] = row.team.tag;
             }

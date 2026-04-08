@@ -36,7 +36,7 @@ export function useTeamInvites() {
       }
 
       // Filter by selected game
-      const allInvites = (data ?? []) as unknown as TeamInviteWithTeam[];
+      const allInvites = (data ?? []) as TeamInviteWithTeam[];
       const filtered = allInvites.filter((inv) => inv.team.game === selectedGame);
       setInvites(filtered);
     } catch (err) {

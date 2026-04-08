@@ -153,7 +153,7 @@ export default function ProfileScreen() {
             .eq('user_id', user.id);
 
           if (memberData) {
-            const entry = (memberData as unknown as { team_id: string; teams: { game: string } }[])
+            const entry = (memberData as { team_id: string; teams: { game: string } }[])
               .find((m) => m.teams.game === selectedGame);
             if (entry) {
               const rankIds = ranks.map((r) => r.id);

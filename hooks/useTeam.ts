@@ -38,7 +38,7 @@ export function useTeam() {
       }
 
       // Find the team for the selected game
-      const entry = (memberData as unknown as { team_id: string; teams: Team }[])
+      const entry = (memberData as { team_id: string; teams: Team }[])
         .find((m) => m.teams.game === selectedGame);
 
       if (!entry) {
@@ -58,7 +58,7 @@ export function useTeam() {
 
       if (signal?.cancelled) return;
 
-      const members = (membersData ?? []) as unknown as TeamMemberWithProfile[];
+      const members = (membersData ?? []) as TeamMemberWithProfile[];
       setCurrentTeam(team, members);
     } catch (err) {
       if (__DEV__) console.error('[useTeam] Error:', err);

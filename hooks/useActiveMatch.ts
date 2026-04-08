@@ -59,7 +59,7 @@ export function useActiveMatch() {
         .is('kicked_at', null)
         .order('joined_at', { ascending: true });
 
-      const members = (membersData ?? []) as unknown as MatchMemberWithProfile[];
+      const members = (membersData ?? []) as MatchMemberWithProfile[];
       setActiveMatch(match, members);
     } catch (err) {
       if (__DEV__) console.error('[useActiveMatch] Error:', err);

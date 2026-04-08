@@ -217,7 +217,7 @@ export default function OnboardingScreen() {
       if (error) throw error;
 
       setSelectedGame(game);
-      setProfile(data as unknown as Profile);
+      setProfile(data as Profile);
     } catch (err: any) {
       console.error('[Onboarding] Save error:', err);
       if (err?.code === '23503') {

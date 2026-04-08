@@ -58,7 +58,7 @@ export function useMatchDetail(matchId: string): UseMatchDetailReturn {
         .is('kicked_at', null)
         .order('joined_at', { ascending: true });
 
-      const typedMembers = (membersData ?? []) as unknown as MatchMemberWithProfile[];
+      const typedMembers = (membersData ?? []) as MatchMemberWithProfile[];
       setMembers(typedMembers);
 
       const mine = typedMembers.find((m) => m.user_id === userId) ?? null;

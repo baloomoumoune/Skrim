@@ -89,7 +89,7 @@ export default function InviteScreen() {
         .eq('user_id', user.id);
 
       if (userTeams) {
-        const hasTeam = (userTeams as unknown as { team_id: string; teams: { game: string } }[])
+        const hasTeam = (userTeams as { team_id: string; teams: { game: string } }[])
           .some((t) => t.teams.game === foundTeam.game && t.team_id !== foundTeam.id);
         setHasExistingTeam(hasTeam);
       }
@@ -118,7 +118,7 @@ export default function InviteScreen() {
           .eq('user_id', user.id);
 
         if (existingMemberships) {
-          const toRemove = (existingMemberships as unknown as { team_id: string; teams: { game: string } }[])
+          const toRemove = (existingMemberships as { team_id: string; teams: { game: string } }[])
             .filter((t) => t.teams.game === team.game);
 
           for (const m of toRemove) {

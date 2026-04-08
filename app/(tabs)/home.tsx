@@ -75,7 +75,7 @@ export default function HomeScreen() {
 
       const { data, error } = await query;
       if (error) throw error;
-      setMatches((data as unknown as MatchWithCreator[]) ?? []);
+      setMatches((data as MatchWithCreator[]) ?? []);
     } catch (err) {
       if (__DEV__) console.error('[Home] Fetch error:', err);
     } finally {
