@@ -531,4 +531,5 @@ export type TeamInviteStatus = Database['public']['Enums']['team_invite_status']
 
 // Platform is not a DB enum — it's string | null on profiles.
 // The codebase uses a union type for type safety.
+// TODO: Create a Postgres enum 'platform_type' and migrate profiles.platform to use it.
 export type Platform = 'pc' | 'console';
