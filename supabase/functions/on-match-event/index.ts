@@ -5,10 +5,8 @@
 //
 // Required database webhooks (configure in Supabase Dashboard → Database → Webhooks):
 //
-// 1. match_requests INSERT → on-match-event (new join request → notify creator)
-// 2. match_requests UPDATE → on-match-event (accepted/rejected → notify requester)
-// 3. match_members UPDATE → on-match-event (kicked_at set → notify kicked member)
-// 4. matches UPDATE → on-match-event (status change → notify all members)
+// 1. match_members UPDATE → on-match-event (kicked_at set → notify kicked member)
+// 2. matches UPDATE → on-match-event (status change → notify all members)
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -71,66 +69,6 @@ serve(async (req: Request) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
-
-    // ── match_requests INSERT → notify creator ──
-    if (table === 'match_requests' && type === 'INSERT') {
-      const matchId = record.match_id as string;
-      const userId = record.user_id as string;
-
-      // Get match creator
-      const { data: match } = await supabase
-        .from('matches')
-        .select('creator_id')
-        .eq('id', matchId)
-        .single();
-
-      if (!match) return new Response('OK');
-
-      // Get requester username
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('username')
-        .eq('id', userId)
-        .single();
-
-      const username = (profile as { username: string } | null)?.username ?? 'Someone';
-
-      await sendPush(
-        supabase,
-        [(match as { creator_id: string }).creator_id],
-        'New join request',
-        `${username} wants to join your match`,
-        { match_id: matchId },
-      );
-    }
-
-    // ── match_requests UPDATE → notify requester ──
-    if (table === 'match_requests' && type === 'UPDATE') {
-      const newStatus = record.status as string;
-      const oldStatus = old_record?.status as string | undefined;
-      const userId = record.user_id as string;
-      const matchId = record.match_id as string;
-
-      if (oldStatus === 'pending' && newStatus === 'accepted') {
-        await sendPush(
-          supabase,
-          [userId],
-          'Request accepted!',
-          'Your join request has been accepted. Mark yourself as ready!',
-          { match_id: matchId },
-        );
-      }
-
-      if (oldStatus === 'pending' && newStatus === 'rejected') {
-        await sendPush(
-          supabase,
-          [userId],
-          'Request declined',
-          'Your join request has been declined.',
-          { match_id: matchId },
-        );
-      }
-    }
 
     // ── match_members UPDATE (kicked) → notify kicked member ──
     if (table === 'match_members' && type === 'UPDATE') {
