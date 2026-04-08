@@ -331,6 +331,218 @@ export type Database = {
           },
         ]
       }
+      valorant_acts: {
+        Row: {
+          created_at: string | null
+          display_name: string
+          end_time: string
+          is_current: boolean | null
+          season_uuid: string
+          start_time: string
+          updated_at: string | null
+          uuid: string
+        }
+        Insert: {
+          created_at?: string | null
+          display_name: string
+          end_time: string
+          is_current?: boolean | null
+          season_uuid: string
+          start_time: string
+          updated_at?: string | null
+          uuid: string
+        }
+        Update: {
+          created_at?: string | null
+          display_name?: string
+          end_time?: string
+          is_current?: boolean | null
+          season_uuid?: string
+          start_time?: string
+          updated_at?: string | null
+          uuid?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "valorant_acts_season_uuid_fkey"
+            columns: ["season_uuid"]
+            isOneToOne: false
+            referencedRelation: "valorant_seasons"
+            referencedColumns: ["uuid"]
+          },
+        ]
+      }
+      valorant_agents: {
+        Row: {
+          abilities: Json
+          background: string | null
+          created_at: string | null
+          description: string | null
+          developer_name: string | null
+          display_icon: string | null
+          display_name: string
+          full_portrait: string | null
+          is_base_content: boolean | null
+          killfeed_portrait: string | null
+          raw_data: Json | null
+          role_display_icon: string | null
+          role_name: string
+          role_uuid: string
+          updated_at: string | null
+          uuid: string
+        }
+        Insert: {
+          abilities?: Json
+          background?: string | null
+          created_at?: string | null
+          description?: string | null
+          developer_name?: string | null
+          display_icon?: string | null
+          display_name: string
+          full_portrait?: string | null
+          is_base_content?: boolean | null
+          killfeed_portrait?: string | null
+          raw_data?: Json | null
+          role_display_icon?: string | null
+          role_name: string
+          role_uuid: string
+          updated_at?: string | null
+          uuid: string
+        }
+        Update: {
+          abilities?: Json
+          background?: string | null
+          created_at?: string | null
+          description?: string | null
+          developer_name?: string | null
+          display_icon?: string | null
+          display_name?: string
+          full_portrait?: string | null
+          is_base_content?: boolean | null
+          killfeed_portrait?: string | null
+          raw_data?: Json | null
+          role_display_icon?: string | null
+          role_name?: string
+          role_uuid?: string
+          updated_at?: string | null
+          uuid?: string
+        }
+        Relationships: []
+      }
+      valorant_game_modes: {
+        Row: {
+          allows_match_timeouts: boolean | null
+          created_at: string | null
+          description: string | null
+          display_icon: string | null
+          display_name: string
+          duration: string | null
+          is_team_voice_allowed: boolean | null
+          raw_data: Json | null
+          updated_at: string | null
+          uuid: string
+        }
+        Insert: {
+          allows_match_timeouts?: boolean | null
+          created_at?: string | null
+          description?: string | null
+          display_icon?: string | null
+          display_name: string
+          duration?: string | null
+          is_team_voice_allowed?: boolean | null
+          raw_data?: Json | null
+          updated_at?: string | null
+          uuid: string
+        }
+        Update: {
+          allows_match_timeouts?: boolean | null
+          created_at?: string | null
+          description?: string | null
+          display_icon?: string | null
+          display_name?: string
+          duration?: string | null
+          is_team_voice_allowed?: boolean | null
+          raw_data?: Json | null
+          updated_at?: string | null
+          uuid?: string
+        }
+        Relationships: []
+      }
+      valorant_maps: {
+        Row: {
+          coordinates: string | null
+          created_at: string | null
+          display_icon: string | null
+          display_name: string
+          is_in_current_pool: boolean | null
+          is_playable: boolean | null
+          list_view_icon: string | null
+          raw_data: Json | null
+          splash: string | null
+          tactical_description: string | null
+          updated_at: string | null
+          uuid: string
+        }
+        Insert: {
+          coordinates?: string | null
+          created_at?: string | null
+          display_icon?: string | null
+          display_name: string
+          is_in_current_pool?: boolean | null
+          is_playable?: boolean | null
+          list_view_icon?: string | null
+          raw_data?: Json | null
+          splash?: string | null
+          tactical_description?: string | null
+          updated_at?: string | null
+          uuid: string
+        }
+        Update: {
+          coordinates?: string | null
+          created_at?: string | null
+          display_icon?: string | null
+          display_name?: string
+          is_in_current_pool?: boolean | null
+          is_playable?: boolean | null
+          list_view_icon?: string | null
+          raw_data?: Json | null
+          splash?: string | null
+          tactical_description?: string | null
+          updated_at?: string | null
+          uuid?: string
+        }
+        Relationships: []
+      }
+      valorant_seasons: {
+        Row: {
+          created_at: string | null
+          display_name: string
+          end_time: string
+          is_current: boolean | null
+          start_time: string
+          updated_at: string | null
+          uuid: string
+        }
+        Insert: {
+          created_at?: string | null
+          display_name: string
+          end_time: string
+          is_current?: boolean | null
+          start_time: string
+          updated_at?: string | null
+          uuid: string
+        }
+        Update: {
+          created_at?: string | null
+          display_name?: string
+          end_time?: string
+          is_current?: boolean | null
+          start_time?: string
+          updated_at?: string | null
+          uuid?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -500,28 +712,16 @@ export const Constants = {
   },
 } as const
 
-// ── Convenience re-exports ──────────────────────────────
-// These aliases let the rest of the codebase import short names
-// instead of Database['public']['Tables']['...']['Row'].
-// Must cover every type name from Task 2.0 audit.
-
-// Row types
+// ── Convenience type aliases ────────────────────────
 export type Profile = Database['public']['Tables']['profiles']['Row'];
+export type Match = Database['public']['Tables']['matches']['Row'];
+export type MatchMember = Database['public']['Tables']['match_members']['Row'];
 export type Team = Database['public']['Tables']['teams']['Row'];
 export type TeamMember = Database['public']['Tables']['team_members']['Row'];
 export type TeamInvite = Database['public']['Tables']['team_invites']['Row'];
-export type Match = Database['public']['Tables']['matches']['Row'];
-export type MatchMember = Database['public']['Tables']['match_members']['Row'];
 
-// Enum types
-// Note: DB enum names differ from code names (game_type vs GameEnum, region_type vs Region)
-export type GameEnum = Database['public']['Enums']['game_type'];
 export type Region = Database['public']['Enums']['region_type'];
+export type GameEnum = Database['public']['Enums']['game_type'];
 export type MatchStatus = Database['public']['Enums']['match_status'];
 export type TeamRole = Database['public']['Enums']['team_role'];
-export type TeamInviteStatus = Database['public']['Enums']['team_invite_status'];
-
-// Platform is not a DB enum — it's string | null on profiles.
-// The codebase uses a union type for type safety.
-// TODO: Create a Postgres enum 'platform_type' and migrate profiles.platform to use it.
-export type Platform = 'pc' | 'console';
+export type Platform = 'pc' | 'console' | 'mobile';
