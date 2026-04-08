@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import type { Match, MatchMemberWithProfile } from '@/types/database';
+import type { Match } from '@/types/database';
+import type { MatchMemberWithProfile } from '@/types/composites';
 
 interface ActiveMatchState {
   activeMatch: Match | null;

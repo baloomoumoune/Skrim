@@ -3,7 +3,8 @@ import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/authStore';
 import { useGameStore } from '@/stores/gameStore';
 import { useTeamStore } from '@/stores/teamStore';
-import type { Team, TeamMemberWithProfile } from '@/types/database';
+import type { Team } from '@/types/database';
+import type { TeamMemberWithProfile } from '@/types/composites';
 
 export function useTeam() {
   const { user } = useAuthStore();

@@ -17,7 +17,8 @@ import { useAuthStore } from '@/stores/authStore';
 import { useGameStore } from '@/stores/gameStore';
 import { GAME_ACCENTS } from '@/lib/constants';
 import { supabase } from '@/lib/supabase';
-import type { Team, TeamMemberWithProfile } from '@/types/database';
+import type { Team } from '@/types/database';
+import type { TeamMemberWithProfile } from '@/types/composites';
 
 interface TeamSettingsModalProps {
   visible: boolean;

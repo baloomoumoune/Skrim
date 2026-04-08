@@ -7,7 +7,7 @@ import { useGameStore } from '@/stores/gameStore';
 import { GAME_ACCENTS } from '@/lib/constants';
 import { getGameLogoUrl } from '@/lib/game-assets';
 import { TeamInitials } from '@/components/TeamInitials';
-import type { TeamInviteWithTeam } from '@/types/database';
+import type { TeamInviteWithTeam } from '@/types/composites';
 
 interface PendingInvitesSectionProps {
   invites: TeamInviteWithTeam[];

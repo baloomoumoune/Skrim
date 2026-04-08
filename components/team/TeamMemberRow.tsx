@@ -3,7 +3,8 @@ import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useGameAssets } from '@/hooks/useGameAssets';
 import { getRankImage } from '@/lib/game-assets';
-import type { TeamMemberWithProfile, TeamRole } from '@/types/database';
+import type { TeamRole } from '@/types/database';
+import type { TeamMemberWithProfile } from '@/types/composites';
 
 const ROLE_LABELS: Record<TeamRole, string> = {
   president: 'President',

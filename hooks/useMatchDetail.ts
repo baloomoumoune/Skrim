@@ -4,11 +4,8 @@ import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/authStore';
 import { useMatchRealtime } from './useMatchRealtime';
-import type {
-  Match,
-  MatchMember,
-  MatchMemberWithProfile,
-} from '@/types/database';
+import type { Match, MatchMember } from '@/types/database';
+import type { MatchMemberWithProfile } from '@/types/composites';
 
 interface UseMatchDetailReturn {
   match: Match | null;

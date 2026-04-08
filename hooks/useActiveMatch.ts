@@ -3,7 +3,8 @@ import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/authStore';
 import { useActiveMatchStore } from '@/stores/activeMatchStore';
 import { useActiveMatchRealtime } from './useActiveMatchRealtime';
-import type { Match, MatchMemberWithProfile } from '@/types/database';
+import type { Match } from '@/types/database';
+import type { MatchMemberWithProfile } from '@/types/composites';
 
 export function useActiveMatch() {
   const { user } = useAuthStore();

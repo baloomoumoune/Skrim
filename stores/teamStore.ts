@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import type { Team, TeamMemberWithProfile } from '@/types/database';
+import type { Team } from '@/types/database';
+import type { TeamMemberWithProfile } from '@/types/composites';
 
 interface TeamState {
   currentTeam: Team | null;

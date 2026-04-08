@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/authStore';
 import { useGameStore } from '@/stores/gameStore';
 import { useGameAssets } from '@/hooks/useGameAssets';
-import type { TeamInviteWithTeam } from '@/types/database';
+import type { TeamInviteWithTeam } from '@/types/composites';
 
 export function useTeamInvites() {
   const { user } = useAuthStore();

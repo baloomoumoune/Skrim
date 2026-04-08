@@ -3,7 +3,7 @@ import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import TeamSlot from './TeamSlot';
 import type { SlotType } from './TeamSlot';
-import type { TeamMemberWithProfile } from '@/types/database';
+import type { TeamMemberWithProfile } from '@/types/composites';
 
 export type { SlotType };
 

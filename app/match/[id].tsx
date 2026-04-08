@@ -21,7 +21,7 @@ import { useGameAssets } from '@/hooks/useGameAssets';
 import { GAME_ACCENTS } from '@/lib/constants';
 import { getRankLabel, getRankImage } from '@/lib/game-assets';
 import { useMatchDetail } from '@/hooks/useMatchDetail';
-import type { MatchMemberWithProfile } from '@/types/database';
+import type { MatchMemberWithProfile } from '@/types/composites';
 
 function formatTimer(ms: number): string {
   const totalSec = Math.floor(ms / 1000);

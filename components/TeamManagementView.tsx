@@ -20,7 +20,8 @@ import { TeamInitials } from '@/components/TeamInitials';
 import TeamSlotGrid, { SlotType } from '@/components/team/TeamSlotGrid';
 import InviteModal from '@/components/team/InviteModal';
 import TeamSettingsModal from '@/components/team/TeamSettingsModal';
-import type { Team, TeamMemberWithProfile, TeamRole } from '@/types/database';
+import type { Team, TeamRole } from '@/types/database';
+import type { TeamMemberWithProfile } from '@/types/composites';
 
 const REGION_LABELS: Record<string, string> = {
   eu: 'EU',
