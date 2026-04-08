@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 
 /**
@@ -6,6 +6,9 @@ import { supabase } from '@/lib/supabase';
  * Listens to match row + member changes (no more match_requests).
  */
 export function useMatchRealtime(matchId: string | undefined, onRefresh: () => void) {
+  const onRefreshRef = useRef(onRefresh);
+  onRefreshRef.current = onRefresh;
+
   useEffect(() => {
     if (!matchId) return;
 
@@ -21,7 +24,7 @@ export function useMatchRealtime(matchId: string | undefined, onRefresh: () => v
         },
         () => {
           if (__DEV__) console.log('[Realtime] Match updated');
-          onRefresh();
+          onRefreshRef.current();
         },
       )
       .on(
@@ -34,7 +37,7 @@ export function useMatchRealtime(matchId: string | undefined, onRefresh: () => v
         },
         () => {
           if (__DEV__) console.log('[Realtime] Members updated');
-          onRefresh();
+          onRefreshRef.current();
         },
       )
       .subscribe();
@@ -42,5 +45,5 @@ export function useMatchRealtime(matchId: string | undefined, onRefresh: () => v
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [matchId, onRefresh]);
+  }, [matchId]);
 }
