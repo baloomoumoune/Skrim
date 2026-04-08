@@ -277,7 +277,7 @@ export default function MatchDetailScreen() {
           </View>
 
           {/* Ready count */}
-          <View style={styles.readyRow}>
+          <View style={[styles.readyRow, { borderTopColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }]}>
             <Text style={[styles.readyLabel, { color: c.textTertiary }]}>Ready</Text>
             <Text style={[styles.readyCount, { color: allReady ? '#22C55E' : c.textSecondary }]}>
               {readyCount}/{members.length}
@@ -620,7 +620,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingTop: 12,
     borderTopWidth: 0.5,
-    borderTopColor: 'rgba(255,255,255,0.06)',
   },
   readyLabel: {
     fontSize: 12,
