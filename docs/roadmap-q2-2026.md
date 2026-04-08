@@ -5,6 +5,8 @@
 >
 > Date de démarrage : avril 2026
 > Objectif fin de trimestre : v1 publiable sur TestFlight et Google Play Internal Testing, testée par 20-50 joueurs recrutés via DRAVA et le cercle proche.
+>
+> Version : 1.0
 
 ---
 
@@ -20,8 +22,11 @@ Le refactor d'audit est terminé (voir `v1.0.2-cleanup-final`). Le code est prop
 - Profil joueur avec avatar, rank, agent, settings
 
 Ce qui manque pour atteindre la vision du North Star :
-- UX de matching bidirectionnelle (feed solo cherche groupes, pas seulement groupes cherchent solos)
-- Système de rôles (Duelist, Controller, Sentinel, Initiator) dans le matching
+- Synchronisation automatique des données Valorant depuis valorant-api.com
+- Moteur de règles Valorant (party size, rank disparity, restrictions Immortal, etc.)
+- Gestion des rank resets automatique
+- Matching bidirectionnel (feed solo cherche groupes, pas seulement groupes cherchent solos)
+- Système de rôles dans le matching (optionnel, non bloquant)
 - Système d'amis basique (futur socle réseau social)
 - Feature payante v1 (Scrim+ avec boost de visibilité)
 - Enregistrement produit auprès de Riot Games
@@ -33,42 +38,87 @@ Ce qui manque pour atteindre la vision du North Star :
 - **Un jalon = une session Claude Code avec Superpowers** : brainstorming → writing-plans → subagent-driven-development → commit → merge sur master.
 - **Tests manuels obligatoires** entre chaque jalon sur les flows touchés.
 - **Feedback DRAVA continu** : à partir du jalon 3, chaque jalon terminé est testé par au moins un mate DRAVA avant passage au suivant.
-- **Pas de perfectionnisme** : mieux vaut une feature livrée en 80% et testée qu'une feature perfaite jamais livrée.
+- **Pas de perfectionnisme** : mieux vaut une feature livrée en 80% et testée qu'une feature parfaite jamais livrée.
 
-## Mois 1 — Fondations du matching bidirectionnel (avril)
+## Mois 1 — Fondations Valorant (avril)
 
-**Objectif mois** : compléter le modèle de matching pour servir la symétrie des rôles définie dans le North Star, et préparer le lancement technique.
+**Objectif mois** : mettre en place l'infrastructure qui permettra à Scrim de respecter strictement les règles Valorant et de se synchroniser automatiquement avec l'état du jeu.
 
-### Jalon 1.1 — Système de rôles dans le matching (semaine 1)
-Ajouter le concept de rôle Valorant (Duelist, Controller, Sentinel, Initiator, Flex) aux matches et aux profils. Permettre à un match de spécifier "on cherche 1 Sentinel et 1 Controller". Permettre à un profil de déclarer ses rôles principaux et secondaires. Filtrer les matches dans le feed Home selon les rôles recherchés.
+### Jalon 1.1 — Synchronisation valorant-api.com (semaine 1)
+Créer l'Edge Function Supabase qui synchronise quotidiennement les données du jeu depuis valorant-api.com. Tables concernées : `valorant_agents`, `valorant_maps`, `valorant_game_modes`, `valorant_seasons`, `valorant_acts`.
 
 **Livrables** :
-- Migration Supabase pour ajouter `roles_needed` sur `matches` et `primary_role`, `secondary_roles` sur `profiles`
-- UI de sélection de rôles dans CreateMatchModal
-- UI de sélection de rôles dans l'onboarding et le profil
-- Filtrage du feed Home par compatibilité de rôles
+- Migration Supabase pour créer les 5 tables de données Valorant synchronisées
+- Edge Function `sync-valorant-data` qui appelle valorant-api.com et met à jour les tables
+- Cron Supabase configuré pour exécution quotidienne à 3h du matin UTC
+- Logs détaillés des changements détectés à chaque sync
+- Fallback gracieux si valorant-api.com est indisponible
+- Premier sync manuel pour peupler les tables
+- Suppression du hardcode actuel de `lib/game-assets.ts` au profit des lectures DB
+- Tests manuels de la sync
+
+### Jalon 1.2 — Moteur de règles Valorant (semaine 2)
+Implémenter le module métier qui encapsule toutes les règles officielles Valorant applicables à Scrim. Ce module est indépendant du reste du code et entièrement testé unitairement.
+
+**Livrables** :
+- Fichier `lib/valorant-rules.ts` avec les fonctions pures :
+  - `isValidPartySize(gameMode, partySize)` — retourne true/false (4-stack interdit en ranked, etc.)
+  - `getAllowedRankRange(lowestRank, partySize)` — retourne la fenêtre de ranks autorisée pour un duo/trio
+  - `isTrioAllowed(highestRank)` — retourne false si Immortal ou Radiant
+  - `getRRPenalty(ranksInParty)` — retourne le pourcentage de pénalité pour un 5-stack
+  - `canUnrankedJoin(match)` — retourne true/false pour les joueurs non-rankés
+- Tests unitaires exhaustifs (au moins 30 cas couvrant les règles documentées dans `docs/valorant-rules.md`)
+- Documentation inline de chaque fonction avec référence à la source Riot
+- Zéro dépendance au reste du code (pur, testable, réutilisable)
+
+### Jalon 1.3 — Gestion des rank resets (semaine 3)
+Implémenter la détection automatique des débuts de Season et le reset automatique du `current_rank` des utilisateurs vers `unranked`, tout en conservant l'historique du rank précédent.
+
+**Livrables** :
+- Migration Supabase pour ajouter `previous_rank_before_reset` et `last_rank_reset_at` sur `profiles`
+- Edge Function `handle-rank-reset` qui détecte les débuts de nouvelle Season via la table `valorant_seasons` et déclenche le reset
+- Logique : quand une nouvelle Season commence, le `current_rank` de tous les utilisateurs passe à `unranked` et le rank précédent est stocké dans `previous_rank_before_reset`
+- Notification push envoyée à tous les utilisateurs : "Nouvelle Season Valorant ! Fais tes games de placement et mets ton rank à jour dans Scrim."
+- UI du profil utilisateur qui affiche "Rank actuel : Unranked (dernier rank : Ascendant 2)"
+- UI d'incitation dans le Home pour les utilisateurs avec rank unranked post-reset
+- Tests manuels simulés du flow de reset
+
+### Jalon 1.4 — Enregistrement Riot Developer Portal (semaine 3, en parallèle)
+Créer le compte Riot Developer, lire l'intégralité des policies, enregistrer Scrim en statut "en développement", rejoindre le Discord Dev. Action administrative, pas technique.
+
+**Livrables** :
+- Compte Dev Portal créé
+- Produit Scrim enregistré avec description conforme au positionnement "outil de coordination sociale"
+- Accès Discord Dev Riot
+- Document `docs/riot-policies.md` qui résume les policies applicables à Scrim
+
+### Jalon 1.5 — Système de rôles optionnel dans le matching (semaine 4)
+Ajouter le concept de rôle Valorant (Duelist, Controller, Sentinel, Initiator, Flex) comme critère **optionnel** de matching. Jamais bloquant, toujours activable en filtre.
+
+**Livrables** :
+- Migration Supabase pour ajouter `roles_wanted` (nullable, array) sur `matches` et `primary_role`, `secondary_roles` sur `profiles`
+- UI de sélection de rôles dans CreateMatchModal (optionnel, skip possible)
+- UI de sélection de rôles dans l'onboarding et le profil (optionnel)
+- Filtre "Rôle manquant" dans le feed Home, activable/désactivable
+- Logique de matching qui n'exclut JAMAIS un joueur basé sur le rôle si le critère n'est pas spécifié
 - Tests manuels
 
-### Jalon 1.2 — Feed bidirectionnel (semaine 2)
-Transformer le Home d'un simple "liste de matches ouverts" à un feed qui montre aussi "joueurs solo en recherche". Le feed a deux onglets : **Matches ouverts** (groupes qui cherchent) et **Joueurs disponibles** (solos qui cherchent).
+## Mois 2 — Matching bidirectionnel et monétisation (mai)
+
+**Objectif mois** : compléter le modèle de matching pour servir la symétrie des rôles définie dans le North Star, implémenter Scrim+ pour couvrir les frais d'infra, polir l'UX partout où c'est nécessaire.
+
+### Jalon 2.1 — Feed bidirectionnel (semaine 1-2)
+Transformer le Home d'un simple "liste de matches ouverts" à un feed qui montre aussi "joueurs solo en recherche". Deux onglets : **Matches ouverts** (groupes qui cherchent) et **Joueurs disponibles** (solos qui cherchent).
 
 **Livrables** :
 - Nouvelle table `player_looking_for_group` ou équivalent
 - Edge Function ou logique Supabase pour publier/dépublier un "statut de recherche"
 - Nouvel onglet sur le Home avec la liste des joueurs disponibles
 - Action "Inviter ce joueur" depuis un match en cours
+- Respect strict du moteur de règles Valorant pour déterminer quels joueurs peuvent rejoindre quels matches
 - Tests manuels bidirectionnels
 
-### Jalon 1.3 — Enregistrement Riot Developer Portal (semaine 2, en parallèle)
-Créer le compte Riot Developer, lire l'intégralité des policies, enregistrer Scrim en statut "en développement", rejoindre le Discord Dev. **Action administrative, pas technique.**
-
-**Livrables** :
-- Compte Dev Portal créé
-- Produit Scrim enregistré avec description conforme au positionnement "outil de coordination sociale"
-- Accès Discord Dev Riot
-- Document interne listant les policies applicables à Scrim (à mettre dans `docs/riot-policies.md`)
-
-### Jalon 1.4 — Système d'amis basique (semaine 3-4)
+### Jalon 2.2 — Système d'amis basique (semaine 2)
 Premier germe du futur réseau social. Capacité à ajouter un joueur en ami après un match, voir la liste de ses amis, voir qui est en ligne. Pas de chat, pas de feed d'activité. Juste le graphe d'amis.
 
 **Livrables** :
@@ -78,11 +128,7 @@ Premier germe du futur réseau social. Capacité à ajouter un joueur en ami apr
 - Notifications push pour les demandes d'ami acceptées
 - Tests manuels
 
-## Mois 2 — Monétisation et polish (mai)
-
-**Objectif mois** : implémenter Scrim+ pour couvrir les frais d'infra, polir l'UX partout où c'est nécessaire, préparer les assets de lancement.
-
-### Jalon 2.1 — Scrim+ : abonnement et feature Boost (semaine 1-2)
+### Jalon 2.3 — Scrim+ : abonnement et feature Boost (semaine 3)
 Implémentation de l'abonnement mensuel Scrim+ avec la feature de boost de visibilité. Prix cible : 2,99€/mois. Facturation via In-App Purchase (Apple StoreKit et Google Play Billing).
 
 **Livrables** :
@@ -95,23 +141,24 @@ Implémentation de l'abonnement mensuel Scrim+ avec la feature de boost de visib
 - UI d'abonnement avec claim des bénéfices
 - Tests manuels du flow de paiement
 
-### Jalon 2.2 — Landing page marketing (semaine 2-3, en parallèle)
+### Jalon 2.4 — Landing page marketing (semaine 3, en parallèle)
 Une simple page web pour présenter Scrim, donner envie de tester, collecter des adresses email pour la bêta. Hébergée sur Vercel, gratuite.
 
 **Livrables** :
-- Page web one-pager en français/anglais (ou juste français pour commencer)
+- Page web one-pager en français
 - Screenshots ou mockups de l'app
 - Formulaire d'inscription bêta (Supabase ou service externe simple)
 - Lien vers Discord communautaire Scrim (créer un Discord Scrim minimal)
 - Domaine dédié (scrim.app ou similaire si dispo)
 
-### Jalon 2.3 — Polish UX critique (semaine 3-4)
+### Jalon 2.5 — Polish UX critique (semaine 4)
 Identifier et corriger les 10-15 irritants UX qui feront fuir les testeurs bêta. Exemples probables : loading states manquants, erreurs mal affichées, petites incohérences visuelles, bugs de realtime rare, onboarding trop long.
 
 **Livrables** :
 - Audit UX complet de l'app sur iPhone et Android (1 journée dédiée)
 - Liste priorisée des problèmes
 - Corrections des 10-15 plus critiques
+- Pédagogie intégrée des règles Valorant (tooltips et messages contextuels dans CreateMatchModal)
 - Tests manuels finaux
 
 ## Mois 3 — Lancement bêta privée (juin)
@@ -161,6 +208,9 @@ Envoi d'un message détaillé à Riot Dev Rel présentant Scrim avec un lien Tes
 À la fin du trimestre, je dois être capable de répondre "oui" à ces questions :
 
 - [ ] Scrim est-il publié sur TestFlight et Google Play Internal Testing ?
+- [ ] Les données Valorant sont-elles synchronisées automatiquement depuis valorant-api.com ?
+- [ ] Le moteur de règles Valorant bloque-t-il la création de matches invalides ?
+- [ ] Le reset automatique des ranks fonctionne-t-il à chaque nouvelle Season ?
 - [ ] Au moins 20 personnes ont-elles installé et utilisé Scrim au moins une fois ?
 - [ ] Au moins 5 matches ont-ils été créés ET complétés via Scrim ?
 - [ ] Au moins 1 personne (hors moi) a-t-elle utilisé Scrim deux semaines de suite ?
@@ -176,7 +226,7 @@ Si la réponse à la plupart est "oui", le trimestre est un succès. Pas besoin 
 
 Pour rester focus, je liste explicitement ce que je ne ferai PAS dans les 3 prochains mois, même si l'envie me prend :
 
-- Intégration Riot API (reporté au trimestre suivant après réponse Riot)
+- Intégration Riot API RSO complète (reporté au trimestre suivant après réponse Riot)
 - Chat in-app complet (version basique seulement)
 - Tournois communautaires
 - Support CS2 ou autre jeu
