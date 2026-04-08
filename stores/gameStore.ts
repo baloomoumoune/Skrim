@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { GAME_ACCENTS, GameId } from '@/lib/constants';
+import { GameId } from '@/lib/constants';
 
 interface GameState {
   selectedGame: GameId;
