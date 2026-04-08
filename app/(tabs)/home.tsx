@@ -4,14 +4,11 @@ import {
   Text,
   TouchableOpacity,
   Pressable,
-  Modal,
   StyleSheet,
   FlatList,
-  Platform,
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
@@ -21,15 +18,22 @@ import { useColorScheme } from 'nativewind';
 import { useGameStore } from '@/stores/gameStore';
 import { useAuthStore } from '@/stores/authStore';
 import { GAME_ACCENTS, GAME_MULTIPLATFORM, GameId } from '@/lib/constants';
-import { getGameLogoUrl, getRankLabel, getGameModeById } from '@/lib/game-assets';
-import type { ValorantGameModeId } from '@/lib/game-assets';
+import { getGameLogoUrl } from '@/lib/game-assets';
 import { supabase } from '@/lib/supabase';
-import type { Match, Region } from '@/types/database';
-import MatchCard from '@/components/MatchCard';
-import MatchFilters, { type RankTier, type TimingFilter } from '@/components/MatchFilters';
+import type { Region } from '@/types/database';
+import MatchCard, { type MatchWithCreator } from '@/components/MatchCard';
 import CreateMatchModal from '@/components/CreateMatchModal';
 
 const ALL_GAMES = Object.values(GAME_ACCENTS);
+const REGIONS: Region[] = ['eu', 'na', 'apac', 'sa', 'me', 'oce'];
+const REGION_LABELS: Record<Region, string> = {
+  eu: 'EU',
+  na: 'NA',
+  apac: 'APAC',
+  sa: 'SA',
+  me: 'ME',
+  oce: 'OCE',
+};
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -43,49 +47,23 @@ export default function HomeScreen() {
   const { profile } = useAuthStore();
 
   const [showGameDropdown, setShowGameDropdown] = useState(false);
-
-  // Match list state
-  const [matches, setMatches] = useState<Match[]>([]);
+  const [matches, setMatches] = useState<MatchWithCreator[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-
-  // Create modal
   const [showCreateModal, setShowCreateModal] = useState(false);
-
-  // Filter state
-  const defaultTier = profile?.current_rank
-    ? getRankLabel(profile.current_rank) as RankTier
-    : null;
-  const [selectedTiers, setSelectedTiers] = useState<RankTier[]>(
-    defaultTier ? [defaultTier] : []
-  );
-  const [showRrPenalty, setShowRrPenalty] = useState(false);
-  const [timingFilter, setTimingFilter] = useState<TimingFilter>('now');
-
-  // Game mode filter
-  const [selectedMode, setSelectedMode] = useState<ValorantGameModeId | null>(null);
-
-  // Region filter — defaults to profile region
   const [selectedRegion, setSelectedRegion] = useState<Region>(
     profile?.region ?? 'eu'
   );
 
-  // Lasts filter
-  const [selectedLasts, setSelectedLasts] = useState<number | null>(null);
+  const HEADER_H = 56;
 
-  // Scheduled date filter
-  const [scheduledFilterDate, setScheduledFilterDate] = useState<Date | null>(null);
-  const [showScheduledDatePicker, setShowScheduledDatePicker] = useState(false);
-
-  const HEADER_H = 60;
-
-  // Fetch matches — filtered by selected region + platform
+  // Fetch matches with creator profile joined
   const fetchMatches = useCallback(async () => {
     if (!profile) return;
     try {
       let query = supabase
         .from('matches')
-        .select('*')
+        .select('*, creator:profiles!matches_creator_id_fkey(*)')
         .eq('game', selectedGame)
         .eq('region', selectedRegion)
         .in('status', ['open', 'full'])
@@ -97,7 +75,7 @@ export default function HomeScreen() {
 
       const { data, error } = await query;
       if (error) throw error;
-      setMatches((data as Match[]) ?? []);
+      setMatches((data as unknown as MatchWithCreator[]) ?? []);
     } catch (err) {
       if (__DEV__) console.error('[Home] Fetch error:', err);
     } finally {
@@ -111,75 +89,17 @@ export default function HomeScreen() {
     fetchMatches();
   }, [fetchMatches]);
 
-  // Client-side filtering: rank tier, RR, timing, expiration
+  // Client-side filter: hide expired matches
   const filteredMatches = useMemo(() => {
     const now = Date.now();
-    const ONE_HOUR = 60 * 60 * 1000;
-
-    let result = matches;
-
-    // Expiration filter — hide expired matches client-side
-    result = result.filter((m) => {
-      if (m.scheduled_at) {
-        // Scheduled: visible until 1h after scheduled time
-        return new Date(m.scheduled_at).getTime() + ONE_HOUR > now;
+    return matches.filter((m) => {
+      if (m.expires_at) {
+        return new Date(m.expires_at).getTime() > now;
       }
-      // Instant: visible for 1h after creation
-      return new Date(m.created_at).getTime() + ONE_HOUR > now;
+      // Legacy fallback: 1h after creation
+      return new Date(m.created_at).getTime() + 3600000 > now;
     });
-
-    // Timing filter
-    if (timingFilter === 'now') {
-      result = result.filter((m) => !m.scheduled_at);
-    } else {
-      result = result.filter((m) => !!m.scheduled_at);
-      // If a specific date is selected, filter to that day only
-      if (scheduledFilterDate) {
-        const filterStart = new Date(scheduledFilterDate);
-        filterStart.setHours(0, 0, 0, 0);
-        const filterEnd = new Date(scheduledFilterDate);
-        filterEnd.setHours(23, 59, 59, 999);
-        result = result.filter((m) => {
-          const matchDate = new Date(m.scheduled_at!).getTime();
-          return matchDate >= filterStart.getTime() && matchDate <= filterEnd.getTime();
-        });
-      }
-    }
-
-    // Game mode filter
-    if (selectedMode) {
-      result = result.filter((m) => m.game_mode === selectedMode);
-    }
-
-    // Resolve active mode config for conditional filtering
-    const activeModeConfig = selectedMode ? getGameModeById(selectedMode) : null;
-
-    // Rank tier filter — skip when mode has no rank
-    if (selectedTiers.length > 0 && (!activeModeConfig || activeModeConfig.hasRank)) {
-      result = result.filter((m) => {
-        const minTier = getRankLabel(m.rank_min);
-        const maxTier = getRankLabel(m.rank_max);
-        return selectedTiers.some(
-          (t) => t === minTier || t === maxTier
-        );
-      });
-    }
-
-    // RR penalty filter — skip when mode has no RR
-    if (showRrPenalty && (!activeModeConfig || activeModeConfig.hasRrPenalty)) {
-      result = result.filter((m) => m.rr_penalty);
-    }
-
-    // Lasts filter — number of spots needed
-    if (selectedLasts !== null) {
-      result = result.filter((m) => {
-        const spotsNeeded = m.max_players - m.current_players;
-        return spotsNeeded === selectedLasts;
-      });
-    }
-
-    return result;
-  }, [matches, selectedTiers, showRrPenalty, timingFilter, scheduledFilterDate, selectedMode, selectedLasts]);
+  }, [matches]);
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -193,11 +113,9 @@ export default function HomeScreen() {
     setShowGameDropdown(false);
   }, [setSelectedGame]);
 
-  const handleMatchPress = (match: Match) => {
+  const handleMatchPress = (match: MatchWithCreator) => {
     router.push(`/match/${match.id}`);
   };
-
-  const borderColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
 
   return (
     <View style={[styles.root, { backgroundColor: c.background, paddingTop: insets.top }]}>
@@ -211,7 +129,7 @@ export default function HomeScreen() {
           },
         ]}
       >
-        <Text style={{ fontSize: 20, fontWeight: '700', color: c.textPrimary, letterSpacing: -0.5 }}>
+        <Text style={[styles.headerTitle, { color: c.textPrimary }]}>
           Home
         </Text>
 
@@ -246,167 +164,96 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Content */}
-      <View style={styles.contentFlex}>
-        {/* ── Primary timing toggle: Now / Scheduled ── */}
-        <View style={styles.timingRow}>
-          {/* Now button */}
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => {
-              setTimingFilter('now');
-              setScheduledFilterDate(null);
-            }}
-            style={[
-              styles.timingChip,
-              {
-                backgroundColor: timingFilter === 'now'
-                  ? `${game.accent}18`
-                  : isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
-                borderColor: timingFilter === 'now'
-                  ? game.accent
-                  : isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
-              },
-            ]}
-          >
-            <Ionicons
-              name="flash"
-              size={14}
-              color={timingFilter === 'now' ? game.accent : c.textTertiary}
-            />
-            <Text
-              style={[
-                styles.timingChipText,
-                { color: timingFilter === 'now' ? game.accent : c.textSecondary },
-              ]}
-            >
-              Now
-            </Text>
-          </TouchableOpacity>
-
-          {/* Scheduled button — opens date picker directly */}
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => {
-              if (timingFilter === 'scheduled') {
-                setShowScheduledDatePicker(true);
-              } else {
-                setTimingFilter('scheduled');
-                setShowScheduledDatePicker(true);
-              }
-            }}
-            style={[
-              styles.timingChip,
-              {
-                backgroundColor: timingFilter === 'scheduled'
-                  ? `${game.accent}18`
-                  : isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
-                borderColor: timingFilter === 'scheduled'
-                  ? game.accent
-                  : isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
-              },
-            ]}
-          >
-            <Ionicons
-              name="calendar-outline"
-              size={14}
-              color={timingFilter === 'scheduled' ? game.accent : c.textTertiary}
-            />
-            <Text
-              style={[
-                styles.timingChipText,
-                { color: timingFilter === 'scheduled' ? game.accent : c.textSecondary },
-              ]}
-              numberOfLines={1}
-            >
-              {timingFilter === 'scheduled' && scheduledFilterDate
-                ? scheduledFilterDate.toLocaleDateString('en-US', {
-                    weekday: 'short',
-                    month: 'short',
-                    day: 'numeric',
-                  })
-                : 'Scheduled'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* ── Match list with bordered container ── */}
-        <View
-          style={[
-            styles.listContainer,
-            { borderColor },
-          ]}
-        >
-          {/* ── Secondary filters inside list border ── */}
-          <View style={[styles.innerFilters, { borderBottomColor: borderColor }]}>
-            <MatchFilters
-              selectedTiers={selectedTiers}
-              onTiersChange={setSelectedTiers}
-              showRrPenalty={showRrPenalty}
-              onRrPenaltyChange={setShowRrPenalty}
-              selectedMode={selectedMode}
-              onModeChange={setSelectedMode}
-              selectedRegion={selectedRegion}
-              onRegionChange={(region) => {
+      {/* Region chips */}
+      <View style={styles.regionRow}>
+        {REGIONS.map((region) => {
+          const isActive = region === selectedRegion;
+          return (
+            <TouchableOpacity
+              key={region}
+              activeOpacity={0.7}
+              onPress={() => {
                 setSelectedRegion(region);
                 setLoading(true);
               }}
-              selectedLasts={selectedLasts}
-              onLastsChange={setSelectedLasts}
-            />
-          </View>
-          {loading ? (
-            <View style={styles.centered}>
-              <ActivityIndicator color={game.accent} />
-            </View>
-          ) : filteredMatches.length === 0 ? (
-            <View style={styles.centered}>
-              <View
-                style={[styles.emptyIcon, { backgroundColor: `${game.accent}12` }]}
+              style={[
+                styles.regionChip,
+                {
+                  backgroundColor: isActive
+                    ? `${game.accent}18`
+                    : isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+                  borderColor: isActive
+                    ? game.accent
+                    : isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.regionChipText,
+                  { color: isActive ? game.accent : c.textSecondary },
+                ]}
               >
-                <Ionicons name="search" size={28} color={game.accent} />
-              </View>
-              <Text style={[styles.emptyTitle, { color: c.textPrimary }]}>
-                No matches yet
+                {REGION_LABELS[region]}
               </Text>
-              <Text style={[styles.emptySubtitle, { color: c.textTertiary }]}>
-                Be the first to create a match{'\n'}and find players.
-              </Text>
-            </View>
-          ) : (
-            <FlatList
-              data={filteredMatches}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <MatchCard match={item} onPress={handleMatchPress} />
-              )}
-              contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 8 }}
-              showsVerticalScrollIndicator={false}
-              refreshControl={
-                <RefreshControl
-                  refreshing={refreshing}
-                  onRefresh={handleRefresh}
-                  tintColor={game.accent}
-                />
-              }
-            />
-          )}
-        </View>
-
-        {/* ── Create Match CTA — static at bottom ── */}
-        <View style={styles.createWrapper}>
-          <TouchableOpacity
-            activeOpacity={0.85}
-            onPress={() => setShowCreateModal(true)}
-            style={[styles.createBtn, { backgroundColor: game.accent }]}
-          >
-            <Ionicons name="add-circle-outline" size={20} color="#FFFFFF" />
-            <Text style={styles.createBtnText}>Create Match</Text>
-          </TouchableOpacity>
-        </View>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
-      {/* ── Floating Game Dropdown Overlay ──────────────── */}
+      {/* Match list */}
+      <View style={styles.listFlex}>
+        {loading ? (
+          <View style={styles.centered}>
+            <ActivityIndicator color={game.accent} />
+          </View>
+        ) : filteredMatches.length === 0 ? (
+          <View style={styles.centered}>
+            <View
+              style={[styles.emptyIcon, { backgroundColor: `${game.accent}12` }]}
+            >
+              <Ionicons name="search" size={28} color={game.accent} />
+            </View>
+            <Text style={[styles.emptyTitle, { color: c.textPrimary }]}>
+              No matches yet
+            </Text>
+            <Text style={[styles.emptySubtitle, { color: c.textTertiary }]}>
+              Be the first to create a match{'\n'}and find players.
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            data={filteredMatches}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <MatchCard match={item} onPress={handleMatchPress} />
+            )}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={handleRefresh}
+                tintColor={game.accent}
+              />
+            }
+          />
+        )}
+      </View>
+
+      {/* Create Match CTA */}
+      <View style={[styles.createWrapper, { paddingBottom: insets.bottom > 0 ? 8 : 16 }]}>
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => setShowCreateModal(true)}
+          style={[styles.createBtn, { backgroundColor: game.accent }]}
+        >
+          <Ionicons name="add" size={20} color="#FFFFFF" />
+          <Text style={styles.createBtnText}>Create Match</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Game Dropdown Overlay */}
       {showGameDropdown && (
         <View
           style={[
@@ -482,54 +329,7 @@ export default function HomeScreen() {
         </View>
       )}
 
-      {/* ── Scheduled date picker ─────────────────────── */}
-      {showScheduledDatePicker && Platform.OS === 'android' && (
-        <DateTimePicker
-          value={scheduledFilterDate ?? new Date()}
-          mode="date"
-          minimumDate={new Date()}
-          onChange={(_e: DateTimePickerEvent, date?: Date) => {
-            setShowScheduledDatePicker(false);
-            if (date) setScheduledFilterDate(date);
-          }}
-        />
-      )}
-      {showScheduledDatePicker && Platform.OS === 'ios' && (
-        <Modal transparent animationType="fade">
-          <View style={styles.iosPickerOverlay}>
-            <View
-              style={[
-                styles.iosPickerContainer,
-                { backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF' },
-              ]}
-            >
-              <View style={styles.iosPickerHeader}>
-                <Text style={[styles.iosPickerTitle, { color: c.textPrimary }]}>
-                  Filter by date
-                </Text>
-                <TouchableOpacity onPress={() => setShowScheduledDatePicker(false)}>
-                  <Text style={{ fontSize: 16, fontWeight: '600', color: game.accent }}>
-                    Done
-                  </Text>
-                </TouchableOpacity>
-              </View>
-              <DateTimePicker
-                value={scheduledFilterDate ?? new Date()}
-                mode="date"
-                display="spinner"
-                minimumDate={new Date()}
-                onChange={(_e: DateTimePickerEvent, date?: Date) => {
-                  if (date) setScheduledFilterDate(date);
-                }}
-                themeVariant={isDark ? 'dark' : 'light'}
-                style={{ height: 200 }}
-              />
-            </View>
-          </View>
-        </Modal>
-      )}
-
-      {/* ── Create Match Modal ─────────────────────────── */}
+      {/* Create Match Modal */}
       <CreateMatchModal
         visible={showCreateModal}
         onClose={() => setShowCreateModal(false)}
@@ -547,8 +347,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     borderBottomWidth: 0.5,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    letterSpacing: -0.5,
   },
   gameSelector: {
     flexDirection: 'row',
@@ -566,75 +371,60 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
   bellButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  contentFlex: {
-    flex: 1,
-  },
-  // ── Timing toggle row ──
-  timingRow: {
+  // Region chips
+  regionRow: {
     flexDirection: 'row',
     gap: 8,
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     marginTop: 16,
-    marginBottom: 10,
+    marginBottom: 12,
   },
-  timingChip: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    height: 38,
+  regionChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
     borderRadius: 10,
     borderWidth: 1,
   },
-  timingChipText: {
-    fontSize: 13,
+  regionChipText: {
+    fontSize: 12,
     fontWeight: '700',
-    letterSpacing: -0.2,
+    letterSpacing: 0.3,
   },
-  // ── Filters inside list ──
-  innerFilters: {
-    paddingHorizontal: 14,
-    paddingTop: 10,
-    paddingBottom: 10,
-    borderBottomWidth: 0.5,
-  },
-  // ── List container ──
-  listContainer: {
+  // List
+  listFlex: {
     flex: 1,
-    marginHorizontal: 20,
-    marginTop: 10,
-    borderWidth: 0.5,
-    borderRadius: 14,
-    overflow: 'hidden',
   },
-  // ── Create CTA ──
-  createWrapper: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
+  listContent: {
+    paddingHorizontal: 24,
+    paddingTop: 4,
     paddingBottom: 8,
+  },
+  // Create CTA
+  createWrapper: {
+    paddingHorizontal: 24,
+    paddingTop: 12,
   },
   createBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    height: 48,
-    borderRadius: 12,
+    height: 54,
+    borderRadius: 27,
   },
   createBtnText: {
-    fontSize: 15,
-    fontWeight: '800',
+    fontSize: 16,
+    fontWeight: '700',
     color: '#FFFFFF',
-    letterSpacing: -0.3,
+    letterSpacing: 0.3,
   },
-  // ── Empty / loading ──
+  // Empty state
   centered: {
     flex: 1,
     alignItems: 'center',
@@ -660,18 +450,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
-  // ── Dropdown ──
+  // Dropdown
   dropdownCard: {
     marginHorizontal: 16,
     marginTop: 6,
     borderRadius: 16,
     borderWidth: 0.5,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 12,
   },
   dropdownRow: {
     flexDirection: 'row',
@@ -688,27 +473,5 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '500',
     marginRight: 8,
-  },
-  // ── iOS Date Picker ──
-  iosPickerOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.4)',
-  },
-  iosPickerContainer: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingBottom: 30,
-  },
-  iosPickerHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
-  iosPickerTitle: {
-    fontSize: 16,
-    fontWeight: '700',
   },
 });

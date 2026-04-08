@@ -90,6 +90,9 @@ export interface Match {
   discord_link: string | null;
   notes: string | null;
   platform: string | null;
+  group_code: string;
+  expires_at: string;
+  launched_at: string | null;
   created_at: string;
   updated_at: string;
 }

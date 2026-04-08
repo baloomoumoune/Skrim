@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls -la \"c:/Users/HOME/Desktop/PROJETS/skrim/Skrim/app/\\(auth\\)/\")"
+    ]
+  }
+}
