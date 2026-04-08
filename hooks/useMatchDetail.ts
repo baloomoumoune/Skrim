@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo } from 'react';
 import { Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
+import { showError } from '@/lib/toast';
 import { useAuthStore } from '@/stores/authStore';
 import { useMatchRealtime } from './useMatchRealtime';
 import type { Match, MatchMember } from '@/types/database';
@@ -65,6 +66,7 @@ export function useMatchDetail(matchId: string): UseMatchDetailReturn {
       setMyMembership(mine as MatchMember | null);
     } catch (err) {
       if (__DEV__) console.error('[useMatchDetail] Fetch error:', err);
+      showError('Connection error', 'Could not load match details.');
     } finally {
       setLoading(false);
     }

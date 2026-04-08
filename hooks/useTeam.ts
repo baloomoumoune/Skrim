@@ -1,5 +1,6 @@
 import { useEffect, useCallback, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { showError } from '@/lib/toast';
 import { useAuthStore } from '@/stores/authStore';
 import { useGameStore } from '@/stores/gameStore';
 import { useTeamStore } from '@/stores/teamStore';
@@ -62,6 +63,7 @@ export function useTeam() {
       setCurrentTeam(team, members);
     } catch (err) {
       if (__DEV__) console.error('[useTeam] Error:', err);
+      showError('Connection error', 'Could not load team data.');
       if (!signal?.cancelled) clearTeam();
     } finally {
       if (!signal?.cancelled) setLoading(false);

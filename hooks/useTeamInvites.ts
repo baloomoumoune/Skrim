@@ -1,6 +1,7 @@
 import { useEffect, useCallback, useState } from 'react';
 import { Alert } from 'react-native';
 import { supabase } from '@/lib/supabase';
+import { showError } from '@/lib/toast';
 import { useAuthStore } from '@/stores/authStore';
 import { useGameStore } from '@/stores/gameStore';
 import { useGameAssets } from '@/hooks/useGameAssets';
@@ -41,6 +42,7 @@ export function useTeamInvites() {
       setInvites(filtered);
     } catch (err) {
       if (__DEV__) console.error('[useTeamInvites] Error:', err);
+      showError('Connection error', 'Could not load invitations.');
     } finally {
       setLoading(false);
     }
