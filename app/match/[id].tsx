@@ -8,9 +8,9 @@ import {
   RefreshControl,
   Alert,
   StyleSheet,
-  Clipboard,
   Animated,
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
@@ -130,7 +130,7 @@ export default function MatchDetailScreen() {
 
   const handleCopyCode = () => {
     if (match?.group_code) {
-      Clipboard.setString(match.group_code);
+      Clipboard.setStringAsync(match.group_code);
       Alert.alert('Copied', 'Group code copied to clipboard.');
     }
   };
