@@ -48,7 +48,7 @@ export default function MyMatchesList() {
         .from('match_members')
         .select('match_id')
         .eq('user_id', user.id)
-        .is('kicked_at' as string, null);
+        .is('kicked_at', null);
 
       if (!memberData || memberData.length === 0) {
         setMatches([]);

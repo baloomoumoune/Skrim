@@ -20,6 +20,8 @@ import { useAuthStore } from '@/stores/authStore';
 import { GAME_ACCENTS, GAME_MULTIPLATFORM, GameId } from '@/lib/constants';
 import { getGameLogoUrl } from '@/lib/game-assets';
 import { supabase } from '@/lib/supabase';
+import { showError } from '@/lib/toast';
+import { useHomeRealtime } from '@/hooks/useHomeRealtime';
 import type { Region } from '@/types/database';
 import MatchCard, { type MatchWithCreator } from '@/components/MatchCard';
 import CreateMatchModal from '@/components/CreateMatchModal';
@@ -75,9 +77,10 @@ export default function HomeScreen() {
 
       const { data, error } = await query;
       if (error) throw error;
-      setMatches((data as unknown as MatchWithCreator[]) ?? []);
+      setMatches((data as MatchWithCreator[]) ?? []);
     } catch (err) {
       if (__DEV__) console.error('[Home] Fetch error:', err);
+      showError('Connection error', 'Could not load matches.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -88,6 +91,8 @@ export default function HomeScreen() {
     setLoading(true);
     fetchMatches();
   }, [fetchMatches]);
+
+  useHomeRealtime(fetchMatches);
 
   // Client-side filter: hide expired matches
   const filteredMatches = useMemo(() => {

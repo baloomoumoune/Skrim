@@ -48,7 +48,7 @@ export default function EmailScreen() {
 
     setLoading(true);
     try {
-      const { data, error } = await (supabase.rpc as Function)('check_email_exists', {
+      const { data, error } = await supabase.rpc('check_email_exists', {
         p_email: email,
       });
       if (error) {

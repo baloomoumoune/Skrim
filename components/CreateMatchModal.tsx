@@ -69,7 +69,7 @@ export default function CreateMatchModal({ visible, onClose, onCreated }: Create
     if (!user || !profile || !canCreate) return;
 
     // Check if user already has an active match
-    const { data: hasActive } = await (supabase.rpc as Function)('check_active_match', {
+    const { data: hasActive } = await supabase.rpc('check_active_match', {
       p_user_id: user.id,
     });
     if (hasActive) {
@@ -97,7 +97,7 @@ export default function CreateMatchModal({ visible, onClose, onCreated }: Create
           status: 'open',
           group_code: groupCode,
           platform: profile.platform ?? null,
-        } as never)
+        })
         .select()
         .single();
 
@@ -110,7 +110,7 @@ export default function CreateMatchModal({ visible, onClose, onCreated }: Create
           match_id: (matchData as { id: string }).id,
           user_id: user.id,
           is_ready: false,
-        } as never);
+        });
 
       if (memberErr) throw memberErr;
 

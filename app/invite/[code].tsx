@@ -89,7 +89,7 @@ export default function InviteScreen() {
         .eq('user_id', user.id);
 
       if (userTeams) {
-        const hasTeam = (userTeams as unknown as { team_id: string; teams: { game: string } }[])
+        const hasTeam = (userTeams as { team_id: string; teams: { game: string } }[])
           .some((t) => t.teams.game === foundTeam.game && t.team_id !== foundTeam.id);
         setHasExistingTeam(hasTeam);
       }
@@ -118,7 +118,7 @@ export default function InviteScreen() {
           .eq('user_id', user.id);
 
         if (existingMemberships) {
-          const toRemove = (existingMemberships as unknown as { team_id: string; teams: { game: string } }[])
+          const toRemove = (existingMemberships as { team_id: string; teams: { game: string } }[])
             .filter((t) => t.teams.game === team.game);
 
           for (const m of toRemove) {
@@ -133,13 +133,13 @@ export default function InviteScreen() {
         // Join new team
         const { error } = await supabase
           .from('team_members')
-          .insert({ team_id: team.id, user_id: user.id, role: 'player' } as never);
+          .insert({ team_id: team.id, user_id: user.id, role: 'player' });
 
         if (error) throw error;
 
         // Recalculate rank
         const rankIds = ranks.map((r) => r.id);
-        await (supabase.rpc as Function)('recalculate_team_rank', {
+        await supabase.rpc('recalculate_team_rank', {
           p_team_id: team.id,
           p_rank_order: rankIds,
         });

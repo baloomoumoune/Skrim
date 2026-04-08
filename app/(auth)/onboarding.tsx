@@ -192,7 +192,7 @@ export default function OnboardingScreen() {
       }
 
       // Upsert profile
-      const profilePayload: Record<string, unknown> = {
+      const profilePayload = {
         id: user.id,
         username: trimmed,
         region,
@@ -201,14 +201,14 @@ export default function OnboardingScreen() {
         current_rank: currentRank,
         main_agent: mainAgent,
         platform: isMultiplatform ? platform : null,
+        ...(avatarUrl ? { avatar_url: avatarUrl } : {}),
       };
-      if (avatarUrl) profilePayload.avatar_url = avatarUrl;
 
       if (__DEV__) console.log('[Onboarding] Saving profile:', profilePayload);
 
       const { data, error } = await supabase
         .from('profiles')
-        .upsert(profilePayload as never, { onConflict: 'id' })
+        .upsert(profilePayload, { onConflict: 'id' })
         .select()
         .single();
 
@@ -217,7 +217,7 @@ export default function OnboardingScreen() {
       if (error) throw error;
 
       setSelectedGame(game);
-      setProfile(data as unknown as Profile);
+      setProfile(data as Profile);
     } catch (err: any) {
       console.error('[Onboarding] Save error:', err);
       if (err?.code === '23503') {

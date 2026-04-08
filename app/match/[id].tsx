@@ -8,9 +8,9 @@ import {
   RefreshControl,
   Alert,
   StyleSheet,
-  Clipboard,
   Animated,
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
@@ -21,7 +21,7 @@ import { useGameAssets } from '@/hooks/useGameAssets';
 import { GAME_ACCENTS } from '@/lib/constants';
 import { getRankLabel, getRankImage } from '@/lib/game-assets';
 import { useMatchDetail } from '@/hooks/useMatchDetail';
-import type { MatchMemberWithProfile } from '@/types/database';
+import type { MatchMemberWithProfile } from '@/types/composites';
 
 function formatTimer(ms: number): string {
   const totalSec = Math.floor(ms / 1000);
@@ -130,7 +130,7 @@ export default function MatchDetailScreen() {
 
   const handleCopyCode = () => {
     if (match?.group_code) {
-      Clipboard.setString(match.group_code);
+      Clipboard.setStringAsync(match.group_code);
       Alert.alert('Copied', 'Group code copied to clipboard.');
     }
   };
@@ -277,7 +277,7 @@ export default function MatchDetailScreen() {
           </View>
 
           {/* Ready count */}
-          <View style={styles.readyRow}>
+          <View style={[styles.readyRow, { borderTopColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }]}>
             <Text style={[styles.readyLabel, { color: c.textTertiary }]}>Ready</Text>
             <Text style={[styles.readyCount, { color: allReady ? '#22C55E' : c.textSecondary }]}>
               {readyCount}/{members.length}
@@ -620,7 +620,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingTop: 12,
     borderTopWidth: 0.5,
-    borderTopColor: 'rgba(255,255,255,0.06)',
   },
   readyLabel: {
     fontSize: 12,

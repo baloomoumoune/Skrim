@@ -2,13 +2,11 @@ import { useState, useCallback, useMemo } from 'react';
 import { Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
+import { showError } from '@/lib/toast';
 import { useAuthStore } from '@/stores/authStore';
 import { useMatchRealtime } from './useMatchRealtime';
-import type {
-  Match,
-  MatchMember,
-  MatchMemberWithProfile,
-} from '@/types/database';
+import type { Match, MatchMember } from '@/types/database';
+import type { MatchMemberWithProfile } from '@/types/composites';
 
 interface UseMatchDetailReturn {
   match: Match | null;
@@ -58,16 +56,17 @@ export function useMatchDetail(matchId: string): UseMatchDetailReturn {
         .from('match_members')
         .select('*, profile:profiles(*)')
         .eq('match_id', matchId)
-        .is('kicked_at' as string, null)
+        .is('kicked_at', null)
         .order('joined_at', { ascending: true });
 
-      const typedMembers = (membersData ?? []) as unknown as MatchMemberWithProfile[];
+      const typedMembers = (membersData ?? []) as MatchMemberWithProfile[];
       setMembers(typedMembers);
 
       const mine = typedMembers.find((m) => m.user_id === userId) ?? null;
       setMyMembership(mine as MatchMember | null);
     } catch (err) {
       if (__DEV__) console.error('[useMatchDetail] Fetch error:', err);
+      showError('Connection error', 'Could not load match details.');
     } finally {
       setLoading(false);
     }
@@ -81,7 +80,7 @@ export function useMatchDetail(matchId: string): UseMatchDetailReturn {
     if (!userId || !matchId) return;
 
     // Check multi-match guard
-    const { data: hasActive } = await (supabase.rpc as Function)('check_active_match', {
+    const { data: hasActive } = await supabase.rpc('check_active_match', {
       p_user_id: userId,
     });
     if (hasActive) {
@@ -90,7 +89,7 @@ export function useMatchDetail(matchId: string): UseMatchDetailReturn {
     }
 
     // Check kick cooldown
-    const { data: onCooldown } = await (supabase.rpc as Function)('check_kick_cooldown', {
+    const { data: onCooldown } = await supabase.rpc('check_kick_cooldown', {
       p_user_id: userId,
       p_match_id: matchId,
     });
@@ -102,7 +101,7 @@ export function useMatchDetail(matchId: string): UseMatchDetailReturn {
     // Direct join — INSERT into match_members
     const { error } = await supabase
       .from('match_members')
-      .insert({ match_id: matchId, user_id: userId, is_ready: false } as never);
+      .insert({ match_id: matchId, user_id: userId, is_ready: false });
 
     if (error) {
       if (__DEV__) console.error('[useMatchDetail] Join error:', error);
@@ -122,7 +121,7 @@ export function useMatchDetail(matchId: string): UseMatchDetailReturn {
 
       const { error } = await supabase
         .from('match_members')
-        .update({ kicked_at: new Date().toISOString() } as never)
+        .update({ kicked_at: new Date().toISOString() })
         .eq('id', memberId);
 
       if (error) {
@@ -140,7 +139,7 @@ export function useMatchDetail(matchId: string): UseMatchDetailReturn {
 
     const { error } = await supabase
       .from('match_members')
-      .update({ is_ready: !myMembership.is_ready } as never)
+      .update({ is_ready: !myMembership.is_ready })
       .eq('id', myMembership.id);
 
     if (error) {
@@ -154,7 +153,7 @@ export function useMatchDetail(matchId: string): UseMatchDetailReturn {
   const deleteMatch = useCallback(async () => {
     const { error } = await supabase
       .from('matches')
-      .update({ status: 'cancelled' } as never)
+      .update({ status: 'cancelled' })
       .eq('id', matchId);
 
     if (error) {
@@ -168,7 +167,7 @@ export function useMatchDetail(matchId: string): UseMatchDetailReturn {
   const launchMatch = useCallback(async () => {
     const { error } = await supabase
       .from('matches')
-      .update({ status: 'in_progress', launched_at: new Date().toISOString() } as never)
+      .update({ status: 'in_progress', launched_at: new Date().toISOString() })
       .eq('id', matchId);
 
     if (error) {
@@ -188,7 +187,7 @@ export function useMatchDetail(matchId: string): UseMatchDetailReturn {
 
     const { error } = await supabase
       .from('match_members')
-      .update({ kicked_at: new Date().toISOString() } as never)
+      .update({ kicked_at: new Date().toISOString() })
       .eq('id', myMembership.id);
 
     if (error) {
@@ -200,7 +199,7 @@ export function useMatchDetail(matchId: string): UseMatchDetailReturn {
   }, [myMembership, match, router]);
 
   const renewMatch = useCallback(async () => {
-    const { error } = await (supabase.rpc as Function)('renew_match', {
+    const { error } = await supabase.rpc('renew_match', {
       p_match_id: matchId,
     });
 
@@ -215,7 +214,7 @@ export function useMatchDetail(matchId: string): UseMatchDetailReturn {
   const completeMatch = useCallback(async () => {
     const { error } = await supabase
       .from('matches')
-      .update({ status: 'completed' } as never)
+      .update({ status: 'completed' })
       .eq('id', matchId);
 
     if (error) {

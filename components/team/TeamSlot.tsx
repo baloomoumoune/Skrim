@@ -1,7 +1,8 @@
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import type { TeamMemberWithProfile, TeamRole } from '@/types/database';
+import type { TeamRole } from '@/types/database';
+import type { TeamMemberWithProfile } from '@/types/composites';
 
 export type SlotType = 'coach' | 'player' | 'sub';
 

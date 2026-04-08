@@ -1,9 +1,11 @@
 import { useEffect, useCallback, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { showError } from '@/lib/toast';
 import { useAuthStore } from '@/stores/authStore';
 import { useGameStore } from '@/stores/gameStore';
 import { useTeamStore } from '@/stores/teamStore';
-import type { Team, TeamMemberWithProfile } from '@/types/database';
+import type { Team } from '@/types/database';
+import type { TeamMemberWithProfile } from '@/types/composites';
 
 export function useTeam() {
   const { user } = useAuthStore();
@@ -37,7 +39,7 @@ export function useTeam() {
       }
 
       // Find the team for the selected game
-      const entry = (memberData as unknown as { team_id: string; teams: Team }[])
+      const entry = (memberData as { team_id: string; teams: Team }[])
         .find((m) => m.teams.game === selectedGame);
 
       if (!entry) {
@@ -57,10 +59,11 @@ export function useTeam() {
 
       if (signal?.cancelled) return;
 
-      const members = (membersData ?? []) as unknown as TeamMemberWithProfile[];
+      const members = (membersData ?? []) as TeamMemberWithProfile[];
       setCurrentTeam(team, members);
     } catch (err) {
       if (__DEV__) console.error('[useTeam] Error:', err);
+      showError('Connection error', 'Could not load team data.');
       if (!signal?.cancelled) clearTeam();
     } finally {
       if (!signal?.cancelled) setLoading(false);

@@ -279,7 +279,7 @@ export const VALORANT_GAME_MODES: GameModeMeta[] = [
     id: 'deathmatch',
     label: 'Deathmatch',
     icon: 'skull-outline',
-    maxPlayers: 1,
+    maxPlayers: 14,
     hasRank: false,
     hasRrPenalty: false,
     teamBased: false,

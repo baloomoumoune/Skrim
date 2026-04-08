@@ -71,7 +71,7 @@ export async function registerForPushNotifications(userId: string): Promise<stri
     // Save to profile
     const { error } = await supabase
       .from('profiles')
-      .update({ push_token: token } as never)
+      .update({ push_token: token })
       .eq('id', userId);
 
     if (error && __DEV__) {

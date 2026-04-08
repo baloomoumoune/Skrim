@@ -37,7 +37,7 @@ export function useUsernameCheck() {
       setStatus('checking');
 
       try {
-        const { data, error } = await (supabase.rpc as Function)('check_username_available', {
+        const { data, error } = await supabase.rpc('check_username_available', {
           p_username: trimmed,
         });
 

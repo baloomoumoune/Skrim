@@ -3,7 +3,8 @@ import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/authStore';
 import { useActiveMatchStore } from '@/stores/activeMatchStore';
 import { useActiveMatchRealtime } from './useActiveMatchRealtime';
-import type { Match, MatchMemberWithProfile } from '@/types/database';
+import type { Match } from '@/types/database';
+import type { MatchMemberWithProfile } from '@/types/composites';
 
 export function useActiveMatch() {
   const { user } = useAuthStore();
@@ -23,7 +24,7 @@ export function useActiveMatch() {
         .from('match_members')
         .select('match_id')
         .eq('user_id', userId)
-        .is('kicked_at' as string, null)
+        .is('kicked_at', null)
         .limit(10);
 
       if (!memberData || memberData.length === 0) {
@@ -55,10 +56,10 @@ export function useActiveMatch() {
         .from('match_members')
         .select('*, profile:profiles(*)')
         .eq('match_id', match.id)
-        .is('kicked_at' as string, null)
+        .is('kicked_at', null)
         .order('joined_at', { ascending: true });
 
-      const members = (membersData ?? []) as unknown as MatchMemberWithProfile[];
+      const members = (membersData ?? []) as MatchMemberWithProfile[];
       setActiveMatch(match, members);
     } catch (err) {
       if (__DEV__) console.error('[useActiveMatch] Error:', err);

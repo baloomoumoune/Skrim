@@ -117,7 +117,7 @@ export default function ProfileScreen() {
       // Update profile in DB
       const { error: updateError } = await supabase
         .from('profiles')
-        .update({ avatar_url: newAvatarUrl } as never)
+        .update({ avatar_url: newAvatarUrl })
         .eq('id', user.id);
 
       if (updateError) throw updateError;
@@ -139,7 +139,7 @@ export default function ProfileScreen() {
     try {
       const { error } = await supabase
         .from('profiles')
-        .update({ current_rank: id } as never)
+        .update({ current_rank: id })
         .eq('id', user.id);
       if (error) throw error;
       setProfile({ ...profile, current_rank: id });
@@ -153,11 +153,11 @@ export default function ProfileScreen() {
             .eq('user_id', user.id);
 
           if (memberData) {
-            const entry = (memberData as unknown as { team_id: string; teams: { game: string } }[])
+            const entry = (memberData as { team_id: string; teams: { game: string } }[])
               .find((m) => m.teams.game === selectedGame);
             if (entry) {
               const rankIds = ranks.map((r) => r.id);
-              await (supabase.rpc as Function)('recalculate_team_rank', {
+              await supabase.rpc('recalculate_team_rank', {
                 p_team_id: entry.team_id,
                 p_rank_order: rankIds,
               });
@@ -178,7 +178,7 @@ export default function ProfileScreen() {
     try {
       const { error } = await supabase
         .from('profiles')
-        .update({ main_agent: id } as never)
+        .update({ main_agent: id })
         .eq('id', user.id);
       if (error) throw error;
       setProfile({ ...profile, main_agent: id });
@@ -580,7 +580,7 @@ export default function ProfileScreen() {
                             try {
                               const { error } = await supabase
                                 .from('profiles')
-                                .update({ platform: p.value } as never)
+                                .update({ platform: p.value })
                                 .eq('id', user.id);
                               if (error) throw error;
                               setProfile({ ...profile, platform: p.value });
