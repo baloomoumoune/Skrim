@@ -69,7 +69,7 @@ export default function CreateMatchModal({ visible, onClose, onCreated }: Create
     if (!user || !profile || !canCreate) return;
 
     // Check if user already has an active match
-    const { data: hasActive } = await (supabase.rpc as Function)('check_active_match', {
+    const { data: hasActive } = await supabase.rpc('check_active_match', {
       p_user_id: user.id,
     });
     if (hasActive) {

@@ -78,7 +78,7 @@ export function useMatchDetail(matchId: string): UseMatchDetailReturn {
     if (!userId || !matchId) return;
 
     // Check multi-match guard
-    const { data: hasActive } = await (supabase.rpc as Function)('check_active_match', {
+    const { data: hasActive } = await supabase.rpc('check_active_match', {
       p_user_id: userId,
     });
     if (hasActive) {
@@ -87,7 +87,7 @@ export function useMatchDetail(matchId: string): UseMatchDetailReturn {
     }
 
     // Check kick cooldown
-    const { data: onCooldown } = await (supabase.rpc as Function)('check_kick_cooldown', {
+    const { data: onCooldown } = await supabase.rpc('check_kick_cooldown', {
       p_user_id: userId,
       p_match_id: matchId,
     });
@@ -197,7 +197,7 @@ export function useMatchDetail(matchId: string): UseMatchDetailReturn {
   }, [myMembership, match, router]);
 
   const renewMatch = useCallback(async () => {
-    const { error } = await (supabase.rpc as Function)('renew_match', {
+    const { error } = await supabase.rpc('renew_match', {
       p_match_id: matchId,
     });
 

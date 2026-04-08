@@ -55,13 +55,13 @@ export function useTeamInvites() {
       // Find the invite to get team_id before accepting
       const invite = invites.find((i) => i.id === inviteId);
 
-      const { error } = await (supabase.rpc as Function)('accept_team_invite', { p_invite_id: inviteId });
+      const { error } = await supabase.rpc('accept_team_invite', { p_invite_id: inviteId });
       if (error) throw error;
 
       // Recalculate team rank after member joined
       if (invite) {
         const rankIds = ranks.map((r) => r.id);
-        await (supabase.rpc as Function)('recalculate_team_rank', {
+        await supabase.rpc('recalculate_team_rank', {
           p_team_id: invite.team_id,
           p_rank_order: rankIds,
         });

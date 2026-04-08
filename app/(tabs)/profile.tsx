@@ -157,7 +157,7 @@ export default function ProfileScreen() {
               .find((m) => m.teams.game === selectedGame);
             if (entry) {
               const rankIds = ranks.map((r) => r.id);
-              await (supabase.rpc as Function)('recalculate_team_rank', {
+              await supabase.rpc('recalculate_team_rank', {
                 p_team_id: entry.team_id,
                 p_rank_order: rankIds,
               });
