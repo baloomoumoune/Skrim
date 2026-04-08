@@ -21,6 +21,7 @@ import { GAME_ACCENTS, GAME_MULTIPLATFORM, GameId } from '@/lib/constants';
 import { getGameLogoUrl } from '@/lib/game-assets';
 import { supabase } from '@/lib/supabase';
 import { showError } from '@/lib/toast';
+import { useHomeRealtime } from '@/hooks/useHomeRealtime';
 import type { Region } from '@/types/database';
 import MatchCard, { type MatchWithCreator } from '@/components/MatchCard';
 import CreateMatchModal from '@/components/CreateMatchModal';
@@ -90,6 +91,8 @@ export default function HomeScreen() {
     setLoading(true);
     fetchMatches();
   }, [fetchMatches]);
+
+  useHomeRealtime(fetchMatches);
 
   // Client-side filter: hide expired matches
   const filteredMatches = useMemo(() => {
