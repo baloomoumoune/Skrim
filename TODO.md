@@ -78,3 +78,25 @@ Classé par priorité. Cocher au fur et à mesure.
 - [x] Système `showError` unifié (4 écrans/hooks)
 - [x] Realtime subscription sur le feed Home
 - [x] Deploy Edge Function sur le projet Supabase distant
+
+## 🟡 Important - Implement offline detection screen
+
+Scrim is a fundamentally online app (matching, realtime, push notifications).
+The current fallback in lib/game-assets-fallback.ts serves as instant render
+placeholder, NOT as offline mode. We need to add a `<NoConnectionScreen />`
+overlay that displays when network is unavailable, and prevent the user from
+interacting with the app until connection is restored.
+
+**Implementation plan**:
+- Add `expo-network` or `@react-native-community/netinfo` package
+- Create `components/NoConnectionScreen.tsx`
+- Add network state listener in `app/_layout.tsx`
+- Show overlay over the entire app when offline
+- Auto-dismiss when connection is restored
+
+**Inspiration**: Instagram, TikTok, Discord, Revolut (all show "no connection"
+screen, no fake offline mode).
+
+**Decision context**: discussed during Jalon 1.1 implementation. Aymen wants
+the app to behave like modern social media — no half-functional offline mode,
+clear "no internet" screen instead.
