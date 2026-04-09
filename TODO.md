@@ -1,5 +1,22 @@
 # TODO — Skrim
 
+## URGENT — FREEZE BACKEND ET REPARATION DB
+
+Decouvert le 9 avril 2026 : aucun element du schema Supabase n'est
+versionne en git. Voir docs/db-drift-report-2026-04-09.md pour le
+detail complet.
+
+FREEZE : aucune modification du backend Supabase autorisee jusqu'a
+la fin de la session de reparation.
+
+JALON 1.3 BLOQUE : ne pas demarrer tant que la reparation n'est
+pas faite.
+
+PROCHAINE SESSION : dediee a la reparation, environ 1h-1h30,
+approche pg_dump baseline.
+
+---
+
 Dette technique et améliorations identifiées lors du refactor d'audit (v1.0.1-cleanup).
 Classé par priorité. Cocher au fur et à mesure.
 
@@ -100,3 +117,31 @@ screen, no fake offline mode).
 **Decision context**: discussed during Jalon 1.1 implementation. Aymen wants
 the app to behave like modern social media — no half-functional offline mode,
 clear "no internet" screen instead.
+
+- [ ] Migrer Jest 29 → Jest 30 quand jest-expo sera compatible
+      (workaround temporaire mis en place au Jalon 1.2 cause
+      jest-watch-typeahead bloque sur Jest 27-29). A revoir au
+      prochain bump d'Expo SDK.
+
+## Issues identifiees au Jalon 1.2
+
+- [ ] Migrer Jest 29 → Jest 30 quand jest-expo sera compatible.
+      Workaround temporaire mis en place au Jalon 1.2 parce que
+      jest-expo@55 bloque sur Jest 27-29 via sa dependance
+      jest-watch-typeahead. A revoir au prochain bump d'Expo SDK
+      (probablement SDK 56 ou 57).
+
+- [ ] Creer une fonction facade validateJoinRequest dans
+      lib/valorant-rules.ts au Jalon 2.1. Decision de brainstorming :
+      les 5 fonctions atomiques suffisent pour le 1.2, mais le feed
+      bidirectionnel du 2.1 aura besoin d'une fonction qui orchestre
+      l'ensemble pour valider en une passe si un joueur peut rejoindre
+      un match donne. La signature et le contexte exact seront
+      definis quand on attaquera le 2.1.
+
+- [ ] Migration DB optionnelle : transformer profiles.current_rank
+      de type text libre en enum Postgres. Pas urgent parce que
+      parseRank() sert deja de validation a l'app, et la colonne
+      n'est ecrite que par l'app elle-meme. A reevaluer quand
+      l'integration Riot RSO arrivera (Phase B), parce que des
+      donnees externes pourraient introduire des valeurs invalides.
