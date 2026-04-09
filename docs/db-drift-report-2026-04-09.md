@@ -1,7 +1,27 @@
 # Rapport de divergence DB Supabase <-> git
 
 > Decouvert le 9 avril 2026 pendant l'audit technique du Jalon 1.3.
-> Statut : NON RESOLU. Bloque le Jalon 1.3.
+> Statut : RESOLU le 2026-04-09.
+
+## RESOLU le 2026-04-09
+
+Session de réparation dédiée effectuée le 9 avril 2026. Livrables :
+
+- `supabase/migrations/00000000000000_baseline.sql` (36 Ko) : baseline
+  complète du schéma public générée via `supabase db dump --schema public`.
+  Contient 11 tables, 5 enums, 13 fonctions Postgres, 11 triggers, 27 RLS
+  policies.
+- `supabase/functions/sync-valorant-data/index.ts` : code source de
+  l'Edge Function récupéré et commité.
+- `supabase/cron-jobs.sql` : aligné avec l'état réel de production
+  (expire-old-matches actif toutes les 5 min, sync-valorant-data-daily
+  à 3h UTC).
+- `docs/supabase-discipline.md` : règles non négociables pour prévenir
+  toute récidive.
+
+**FREEZE LEVÉ.** Le Jalon 1.3 est débloqué.
+
+---
 
 ## Le probleme en une phrase
 

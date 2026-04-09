@@ -1,22 +1,5 @@
 # TODO — Skrim
 
-## URGENT — FREEZE BACKEND ET REPARATION DB
-
-Decouvert le 9 avril 2026 : aucun element du schema Supabase n'est
-versionne en git. Voir docs/db-drift-report-2026-04-09.md pour le
-detail complet.
-
-FREEZE : aucune modification du backend Supabase autorisee jusqu'a
-la fin de la session de reparation.
-
-JALON 1.3 BLOQUE : ne pas demarrer tant que la reparation n'est
-pas faite.
-
-PROCHAINE SESSION : dediee a la reparation, environ 1h-1h30,
-approche pg_dump baseline.
-
----
-
 Dette technique et améliorations identifiées lors du refactor d'audit (v1.0.1-cleanup).
 Classé par priorité. Cocher au fur et à mesure.
 

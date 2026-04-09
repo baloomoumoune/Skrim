@@ -23,16 +23,18 @@ Brainstorming commence le 9 avril 2026 mais interrompu par la
 decouverte du probleme de versioning DB. Bloque jusqu'a la
 reparation.
 
-## Probleme de versioning DB decouvert
+## Problème de versioning DB découvert et résolu
 
-Le 9 avril 2026, pendant l'audit technique preparatoire au Jalon 1.3,
-on a decouvert que **aucun element du schema Supabase (11 tables,
-13 fonctions, enums, triggers, RLS policies) n'est versionne en git**.
-Tout a ete cree directement en production via le dashboard ou le MCP
-sans jamais etre sauvegarde en local. Voir
-`docs/db-drift-report-2026-04-09.md` pour le rapport complet, les
-risques identifies, et la strategie de reparation planifiee
-(baseline pg_dump).
+Le 9 avril 2026, pendant l'audit technique préparatoire au Jalon 1.3,
+découverte qu'aucun élément du schéma Supabase (11 tables, 13 fonctions,
+enums, triggers, RLS policies) n'était versionné en git. Tout avait été
+créé directement en production via le dashboard ou le MCP sans jamais
+être sauvegardé en local.
 
-**FREEZE backend en vigueur** jusqu'a la fin de la session de
-reparation dediee.
+**RÉSOLU le même jour** par une session de réparation dédiée qui a
+produit un baseline complet via `supabase db dump`, récupéré l'Edge
+Function `sync-valorant-data` en local, aligné `cron-jobs.sql` avec
+la prod, et établi des règles de discipline dans
+`docs/supabase-discipline.md` pour prévenir toute récidive.
+
+Voir `docs/db-drift-report-2026-04-09.md` pour le rapport complet.
