@@ -1,11 +1,18 @@
 -- ============================================================
--- Cron Jobs Reference (documentary, not auto-executed)
--- These jobs are configured in Supabase via pg_cron + pg_net.
+-- Cron Jobs — mirror of production state
+-- These jobs are active in Supabase production via pg_cron + pg_net.
+-- This file reflects the exact state of cron.job in production.
+-- Last verified: 2026-04-09 (post-mortem recovery)
 -- ============================================================
 
--- Job 1: Expire old matches (pre-existing)
--- Schedule: every minute
--- SELECT cron.schedule('expire-old-matches', '* * * * *', $$SELECT expire_old_matches()$$);
+-- Job 1: Expire old matches
+-- Schedule: every 5 minutes
+-- Active in production since initial development
+SELECT cron.schedule(
+  'expire-old-matches',
+  '*/5 * * * *',
+  $$SELECT expire_old_matches()$$
+);
 
 -- Job 2: Sync Valorant data from valorant-api.com
 -- Schedule: daily at 3h UTC
