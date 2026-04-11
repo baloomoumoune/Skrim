@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from 'nativewind';
 import * as ImagePicker from 'expo-image-picker';
@@ -44,6 +45,8 @@ export default function ProfileScreen() {
   const { agents, ranks, agentUrl, rankUrl } = useGameAssets();
   const isMultiplatform = GAME_MULTIPLATFORM[selectedGame] ?? false;
   const { team: currentTeam } = useTeam();
+  const params = useLocalSearchParams<{ openRankEditor?: string }>();
+  const router = useRouter();
 
   // Modal state
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -51,6 +54,14 @@ export default function ProfileScreen() {
   const [showRankPicker, setShowRankPicker] = useState(false);
   const [showAgentPicker, setShowAgentPicker] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  // Auto-open rank picker when navigated with ?openRankEditor=true (from Home banner CTA)
+  useEffect(() => {
+    if (params.openRankEditor === 'true') {
+      setShowRankPicker(true);
+      router.setParams({ openRankEditor: undefined });
+    }
+  }, [params.openRankEditor, router]);
 
   // Resolve stored IDs to metadata
   const currentRankMeta = ranks.find((r) => r.id === profile?.current_rank) ?? null;
