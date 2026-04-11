@@ -25,6 +25,7 @@ import { useHomeRealtime } from '@/hooks/useHomeRealtime';
 import type { Region } from '@/types/database';
 import MatchCard, { type MatchWithCreator } from '@/components/MatchCard';
 import CreateMatchModal from '@/components/CreateMatchModal';
+import { RankResetBanner } from '@/components/RankResetBanner';
 
 const ALL_GAMES = Object.values(GAME_ACCENTS);
 const REGIONS: Region[] = ['eu', 'na', 'apac', 'sa', 'me', 'oce'];
@@ -233,6 +234,7 @@ export default function HomeScreen() {
             renderItem={({ item }) => (
               <MatchCard match={item} onPress={handleMatchPress} />
             )}
+            ListHeaderComponent={<RankResetBanner />}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
             refreshControl={
