@@ -67,22 +67,28 @@ serve(async (req: Request) => {
       data: data ?? {},
     }));
 
-    // Send to Expo Push API
-    const response = await fetch(EXPO_PUSH_URL, {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'Accept-Encoding': 'gzip, deflate',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(messages),
-    });
+    // Send to Expo Push API in batches of 100 (Expo limit per request)
+    const EXPO_BATCH_SIZE = 100;
+    const results = [];
+    for (let i = 0; i < messages.length; i += EXPO_BATCH_SIZE) {
+      const chunk = messages.slice(i, i + EXPO_BATCH_SIZE);
+      const res = await fetch(EXPO_PUSH_URL, {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Accept-Encoding': 'gzip, deflate',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(chunk),
+      });
+      const data = await res.json();
+      results.push(data);
+    }
 
-    const result = await response.json();
-    console.log(`Sent ${tokens.length} push notification(s)`);
+    console.log(`Sent ${tokens.length} push notification(s) in ${results.length} batch(es)`);
 
     return new Response(
-      JSON.stringify({ sent: tokens.length, result }),
+      JSON.stringify({ sent: tokens.length, results }),
       { status: 200, headers: { 'Content-Type': 'application/json' } },
     );
   } catch (err) {
