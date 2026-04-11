@@ -140,9 +140,11 @@ export type Database = {
           current_rank: string | null
           discord_tag: string | null
           id: string
+          last_rank_reset_at: string | null
           main_agent: string | null
           platform: string | null
           preferred_game: Database["public"]["Enums"]["game_type"] | null
+          previous_rank_before_reset: string | null
           push_token: string | null
           region: Database["public"]["Enums"]["region_type"]
           timezone: string
@@ -155,9 +157,11 @@ export type Database = {
           current_rank?: string | null
           discord_tag?: string | null
           id: string
+          last_rank_reset_at?: string | null
           main_agent?: string | null
           platform?: string | null
           preferred_game?: Database["public"]["Enums"]["game_type"] | null
+          previous_rank_before_reset?: string | null
           push_token?: string | null
           region?: Database["public"]["Enums"]["region_type"]
           timezone?: string
@@ -170,9 +174,11 @@ export type Database = {
           current_rank?: string | null
           discord_tag?: string | null
           id?: string
+          last_rank_reset_at?: string | null
           main_agent?: string | null
           platform?: string | null
           preferred_game?: Database["public"]["Enums"]["game_type"] | null
+          previous_rank_before_reset?: string | null
           push_token?: string | null
           region?: Database["public"]["Enums"]["region_type"]
           timezone?: string
@@ -519,6 +525,7 @@ export type Database = {
           display_name: string
           end_time: string
           is_current: boolean | null
+          reset_processed: boolean
           start_time: string
           updated_at: string | null
           uuid: string
@@ -528,6 +535,7 @@ export type Database = {
           display_name: string
           end_time: string
           is_current?: boolean | null
+          reset_processed?: boolean
           start_time: string
           updated_at?: string | null
           uuid: string
@@ -537,6 +545,7 @@ export type Database = {
           display_name?: string
           end_time?: string
           is_current?: boolean | null
+          reset_processed?: boolean
           start_time?: string
           updated_at?: string | null
           uuid?: string
@@ -564,6 +573,13 @@ export type Database = {
         Returns: boolean
       }
       expire_old_matches: { Args: never; Returns: undefined }
+      process_rank_reset: {
+        Args: { p_season_uuid: string; p_target_user_ids?: string[] }
+        Returns: {
+          affected_count: number
+          user_ids: string[]
+        }[]
+      }
       recalculate_team_rank: {
         Args: { p_rank_order: string[]; p_team_id: string }
         Returns: string
@@ -711,17 +727,3 @@ export const Constants = {
     },
   },
 } as const
-
-// ── Convenience type aliases ────────────────────────
-export type Profile = Database['public']['Tables']['profiles']['Row'];
-export type Match = Database['public']['Tables']['matches']['Row'];
-export type MatchMember = Database['public']['Tables']['match_members']['Row'];
-export type Team = Database['public']['Tables']['teams']['Row'];
-export type TeamMember = Database['public']['Tables']['team_members']['Row'];
-export type TeamInvite = Database['public']['Tables']['team_invites']['Row'];
-
-export type Region = Database['public']['Enums']['region_type'];
-export type GameEnum = Database['public']['Enums']['game_type'];
-export type MatchStatus = Database['public']['Enums']['match_status'];
-export type TeamRole = Database['public']['Enums']['team_role'];
-export type Platform = 'pc' | 'console' | 'mobile';
