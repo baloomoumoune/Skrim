@@ -98,6 +98,12 @@ export function getRankLabel(rankId: string): string {
   return base.charAt(0).toUpperCase() + base.slice(1);
 }
 
+/** Formats a full rank ID to its display name: 'diamond_2' → 'Diamond 2', 'radiant' → 'Radiant' */
+export function formatRank(rankId: string): string {
+  const entry = VALORANT_RANKS.find((r) => r.id === rankId);
+  return entry?.name ?? getRankLabel(rankId);
+}
+
 /** Returns the rank image filename for a given rank ID */
 export function getRankImage(rankId: string, ranks: RankMeta[]): string | null {
   const rank = ranks.find((r) => r.id === rankId);

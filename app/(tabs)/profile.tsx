@@ -19,6 +19,7 @@ import { useColors } from '@/hooks/useThemeColors';
 import { useGameStore } from '@/stores/gameStore';
 import { useGameAssets } from '@/hooks/useGameAssets';
 import { GAME_ACCENTS, GAME_MULTIPLATFORM } from '@/lib/constants';
+import { formatRank } from '@/lib/game-assets';
 import type { Platform } from '@/types/database';
 import { supabase } from '@/lib/supabase';
 import { useTeam } from '@/hooks/useTeam';
@@ -364,6 +365,20 @@ export default function ProfileScreen() {
             <Text numberOfLines={1} style={{ fontSize: 11, fontWeight: '600', marginTop: 4, color: c.textSecondary }}>
               {currentRankMeta?.name ?? '—'}
             </Text>
+            {profile?.current_rank === 'unranked' && profile?.previous_rank_before_reset ? (
+              <Text
+                numberOfLines={1}
+                style={{
+                  fontSize: 12,
+                  fontWeight: '400',
+                  marginTop: 2,
+                  paddingHorizontal: 4,
+                  color: c.textSecondary,
+                }}
+              >
+                Last rank: {formatRank(profile.previous_rank_before_reset)}
+              </Text>
+            ) : null}
           </View>
 
           {/* Main Agent */}
