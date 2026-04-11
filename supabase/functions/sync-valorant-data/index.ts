@@ -328,6 +328,16 @@ serve(async (req: Request) => {
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
+  // Jalon 1.3: snapshot current Season BEFORE any sync/upsert
+  // Used after updateIsCurrent() to detect Season change
+  const { data: seasonBefore } = await supabase
+    .from('valorant_seasons')
+    .select('uuid')
+    .eq('is_current', true)
+    .order('start_time', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
   log('sync_start');
   const errors: string[] = [];
   const results: Record<string, SyncResult> = {};
@@ -396,6 +406,36 @@ serve(async (req: Request) => {
     const msg = e instanceof Error ? e.message : String(e);
     errors.push(`is_current update: ${msg}`);
     log('is_current_error', { error: msg });
+  }
+
+  // Jalon 1.3: detect Season change and trigger rank reset
+  const { data: seasonAfter } = await supabase
+    .from('valorant_seasons')
+    .select('uuid, reset_processed')
+    .eq('is_current', true)
+    .order('start_time', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (
+    seasonAfter &&
+    seasonAfter.uuid !== seasonBefore?.uuid &&
+    !seasonAfter.reset_processed
+  ) {
+    log('season_change_detected', {
+      from: seasonBefore?.uuid ?? 'none',
+      to: seasonAfter.uuid,
+    });
+
+    const { error } = await supabase.functions.invoke('handle-rank-reset', {
+      body: { season_uuid: seasonAfter.uuid },
+    });
+
+    if (error) {
+      log('rank_reset_error', { error: error.message });
+    } else {
+      log('rank_reset_triggered', { season_uuid: seasonAfter.uuid });
+    }
   }
 
   // 7. Build and return response
