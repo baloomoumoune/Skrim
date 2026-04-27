@@ -53,9 +53,10 @@ export default function TeamMemberRow({
   onChangeRole,
   onKick,
 }: TeamMemberRowProps) {
-  const { ranks, rankUrl } = useGameAssets();
+  const { ranks, rankUrl, agents } = useGameAssets();
   const profile = member.profile;
   const rankImage = profile.current_rank ? getRankImage(profile.current_rank, ranks) : null;
+  const agentName = profile.main_agent ? agents.find((a) => a.id === profile.main_agent)?.name ?? null : null;
   const isPresidentMember = member.role === 'president';
 
   const handleKick = () => {
@@ -115,9 +116,9 @@ export default function TeamMemberRow({
           {rankImage && (
             <Image source={{ uri: rankUrl(rankImage) }} style={styles.rankIcon} contentFit="contain" />
           )}
-          {profile.main_agent && (
+          {agentName && (
             <Text numberOfLines={1} style={[styles.detail, { color: textTertiary }]}>
-              {profile.main_agent.charAt(0).toUpperCase() + profile.main_agent.slice(1)}
+              {agentName}
             </Text>
           )}
         </View>
