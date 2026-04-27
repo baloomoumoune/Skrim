@@ -1,10 +1,10 @@
 // Supabase Edge Function: handle-rank-reset
-// Resets all ranked users to 'unranked' when a new Valorant Season starts.
+// Resets all ranked users to 'unranked' when a new Valorant Act starts.
 // Preserves previous rank in profiles.previous_rank_before_reset.
 // Sends push notification to affected users via send-push.
 //
 // Auth: Bearer token must be a valid service_role JWT
-// Trigger: called by sync-valorant-data when a Season change is detected
+// Trigger: called by sync-valorant-data when an Act change is detected
 //
 // Deploy: supabase functions deploy handle-rank-reset
 
@@ -14,14 +14,14 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 // === Types ===
 
 interface RankResetRequest {
-  season_uuid: string;
+  act_uuid: string;
   dry_run?: boolean;
   target_user_ids?: string[];
 }
 
 interface RankResetResponse {
   success: boolean;
-  season_uuid: string;
+  act_uuid: string;
   dry_run: boolean;
   affected_count: number;
   notified_count: number;
@@ -82,36 +82,36 @@ serve(async (req: Request) => {
     return jsonResponse({ error: 'Invalid JSON body' }, 400);
   }
 
-  const { season_uuid, dry_run = false, target_user_ids } = body;
+  const { act_uuid, dry_run = false, target_user_ids } = body;
 
-  if (!season_uuid) {
-    return jsonResponse({ error: 'Missing required field: season_uuid' }, 400);
+  if (!act_uuid) {
+    return jsonResponse({ error: 'Missing required field: act_uuid' }, 400);
   }
 
-  log('rank_reset_start', { season_uuid, dry_run, target_user_ids: target_user_ids ?? 'all' });
+  log('rank_reset_start', { act_uuid, dry_run, target_user_ids: target_user_ids ?? 'all' });
 
   const errors: string[] = [];
 
-  // 4. Verify Season exists and reset_processed = false
-  const { data: season, error: seasonError } = await supabase
-    .from('valorant_seasons')
+  // 4. Verify Act exists and reset_processed = false
+  const { data: act, error: actError } = await supabase
+    .from('valorant_acts')
     .select('uuid, reset_processed')
-    .eq('uuid', season_uuid)
+    .eq('uuid', act_uuid)
     .maybeSingle();
 
-  if (seasonError) {
-    log('season_check_error', { error: seasonError.message });
-    return jsonResponse({ error: 'Failed to check season' }, 500);
+  if (actError) {
+    log('act_check_error', { error: actError.message });
+    return jsonResponse({ error: 'Failed to check act' }, 500);
   }
 
-  if (!season) {
-    log('season_not_found', { season_uuid });
-    return jsonResponse({ error: `Season ${season_uuid} not found` }, 409);
+  if (!act) {
+    log('act_not_found', { act_uuid });
+    return jsonResponse({ error: `Act ${act_uuid} not found` }, 409);
   }
 
-  if (season.reset_processed) {
-    log('season_already_processed', { season_uuid });
-    return jsonResponse({ error: `Season ${season_uuid} already processed` }, 409);
+  if (act.reset_processed) {
+    log('act_already_processed', { act_uuid });
+    return jsonResponse({ error: `Act ${act_uuid} already processed` }, 409);
   }
 
   // 5. Dry run: count affected profiles without modifying anything
@@ -135,7 +135,7 @@ serve(async (req: Request) => {
 
     const response: RankResetResponse = {
       success: true,
-      season_uuid,
+      act_uuid,
       dry_run: true,
       affected_count: count ?? 0,
       notified_count: 0,
@@ -147,8 +147,8 @@ serve(async (req: Request) => {
   }
 
   // 6. Call RPC process_rank_reset (atomic transaction)
-  const rpcParams: { p_season_uuid: string; p_target_user_ids?: string[] } = {
-    p_season_uuid: season_uuid,
+  const rpcParams: { p_act_uuid: string; p_target_user_ids?: string[] } = {
+    p_act_uuid: act_uuid,
   };
   if (target_user_ids && target_user_ids.length > 0) {
     rpcParams.p_target_user_ids = target_user_ids;
@@ -161,7 +161,7 @@ serve(async (req: Request) => {
 
   if (rpcError) {
     log('rpc_error', { error: rpcError.message });
-    // Season already processed or not found → 409
+    // Act already processed or not found → 409
     if (rpcError.message.includes('already processed') || rpcError.message.includes('not found')) {
       return jsonResponse({ error: rpcError.message }, 409);
     }
@@ -183,7 +183,7 @@ serve(async (req: Request) => {
       const { data: pushResult, error: pushError } = await supabase.functions.invoke('send-push', {
         body: {
           user_ids: userIds,
-          title: 'New Valorant Season',
+          title: 'New Valorant Act',
           body: 'Ranks have been reset. Complete your placement matches and update your rank in Scrim.',
         },
       });
@@ -205,7 +205,7 @@ serve(async (req: Request) => {
   // 8. Return result
   const response: RankResetResponse = {
     success: true,
-    season_uuid,
+    act_uuid,
     dry_run: false,
     affected_count: affectedCount,
     notified_count: notifiedCount,
@@ -213,7 +213,7 @@ serve(async (req: Request) => {
   };
 
   log('rank_reset_complete', {
-    season_uuid,
+    act_uuid,
     affected_count: affectedCount,
     notified_count: notifiedCount,
     errors_count: errors.length,
