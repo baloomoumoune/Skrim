@@ -185,6 +185,32 @@ export type Database = {
           updated_at?: string
           username?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_main_agent_fkey"
+            columns: ["main_agent"]
+            isOneToOne: false
+            referencedRelation: "valorant_agents"
+            referencedColumns: ["uuid"]
+          },
+        ]
+      }
+      profiles_backup_pre_uuid_migration: {
+        Row: {
+          backed_up_at: string | null
+          id: string | null
+          main_agent: string | null
+        }
+        Insert: {
+          backed_up_at?: string | null
+          id?: string | null
+          main_agent?: string | null
+        }
+        Update: {
+          backed_up_at?: string | null
+          id?: string | null
+          main_agent?: string | null
+        }
         Relationships: []
       }
       sync_runs: {
@@ -715,7 +741,6 @@ export type Database = {
           end_time: string
           episode_number: number | null
           is_current: boolean | null
-          reset_processed: boolean
           start_time: string
           updated_at: string | null
           uuid: string
@@ -726,7 +751,6 @@ export type Database = {
           end_time: string
           episode_number?: number | null
           is_current?: boolean | null
-          reset_processed?: boolean
           start_time: string
           updated_at?: string | null
           uuid: string
@@ -737,7 +761,6 @@ export type Database = {
           end_time?: string
           episode_number?: number | null
           is_current?: boolean | null
-          reset_processed?: boolean
           start_time?: string
           updated_at?: string | null
           uuid?: string
@@ -868,7 +891,7 @@ export type Database = {
       }
       expire_old_matches: { Args: never; Returns: undefined }
       process_rank_reset: {
-        Args: { p_season_uuid: string; p_target_user_ids?: string[] }
+        Args: { p_act_uuid: string; p_target_user_ids?: string[] }
         Returns: {
           affected_count: number
           user_ids: string[]
