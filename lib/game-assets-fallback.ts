@@ -11,6 +11,7 @@ export const FALLBACK_AGENTS: AgentRow[] = [
   {
     uuid: "41fb69c1-4189-7b37-f117-bcaf1e96f1bf",
     display_name: "Astra",
+    slug: "astra",
     description: null,
     developer_name: "Rift",
     role_uuid: "4ee40330-ecdd-4f2f-98a8-eb1243428373",
@@ -29,6 +30,7 @@ export const FALLBACK_AGENTS: AgentRow[] = [
   {
     uuid: "5f8d3a7f-467b-97f3-062c-13acf203c006",
     display_name: "Breach",
+    slug: "breach",
     description: null,
     developer_name: "Breach",
     role_uuid: "1b47567f-8f7b-444b-aae3-b0c634622d10",
@@ -47,6 +49,7 @@ export const FALLBACK_AGENTS: AgentRow[] = [
   {
     uuid: "9f0d8ba9-4140-b941-57d3-a7ad57c6b417",
     display_name: "Brimstone",
+    slug: "brimstone",
     description: null,
     developer_name: "Sarge",
     role_uuid: "4ee40330-ecdd-4f2f-98a8-eb1243428373",
@@ -65,6 +68,7 @@ export const FALLBACK_AGENTS: AgentRow[] = [
   {
     uuid: "22697a3d-45bf-8dd7-4fec-84a9e28c69d7",
     display_name: "Chamber",
+    slug: "chamber",
     description: null,
     developer_name: "Deadeye",
     role_uuid: "5fc02f99-4091-4486-a531-98459a3e95e9",
@@ -83,6 +87,7 @@ export const FALLBACK_AGENTS: AgentRow[] = [
   {
     uuid: "1dbf2edd-4729-0984-3115-daa5eed44993",
     display_name: "Clove",
+    slug: "clove",
     description: null,
     developer_name: "Smonk",
     role_uuid: "4ee40330-ecdd-4f2f-98a8-eb1243428373",
@@ -101,6 +106,7 @@ export const FALLBACK_AGENTS: AgentRow[] = [
   {
     uuid: "117ed9e3-49f3-6512-3ccf-0cada7e3823b",
     display_name: "Cypher",
+    slug: "cypher",
     description: null,
     developer_name: "Gumshoe",
     role_uuid: "5fc02f99-4091-4486-a531-98459a3e95e9",
@@ -119,6 +125,7 @@ export const FALLBACK_AGENTS: AgentRow[] = [
   {
     uuid: "cc8b64c8-4b25-4ff9-6e7f-37b4da43d235",
     display_name: "Deadlock",
+    slug: "deadlock",
     description: null,
     developer_name: "Cable",
     role_uuid: "5fc02f99-4091-4486-a531-98459a3e95e9",
@@ -137,6 +144,7 @@ export const FALLBACK_AGENTS: AgentRow[] = [
   {
     uuid: "dade69b4-4f5a-8528-247b-219e5a1facd6",
     display_name: "Fade",
+    slug: "fade",
     description: null,
     developer_name: "BountyHunter",
     role_uuid: "1b47567f-8f7b-444b-aae3-b0c634622d10",
@@ -155,6 +163,7 @@ export const FALLBACK_AGENTS: AgentRow[] = [
   {
     uuid: "e370fa57-4757-3604-3648-499e1f642d3f",
     display_name: "Gekko",
+    slug: "gekko",
     description: null,
     developer_name: "Aggrobot",
     role_uuid: "1b47567f-8f7b-444b-aae3-b0c634622d10",
@@ -173,6 +182,7 @@ export const FALLBACK_AGENTS: AgentRow[] = [
   {
     uuid: "95b78ed7-4637-86d9-7e41-71ba8c293152",
     display_name: "Harbor",
+    slug: "harbor",
     description: null,
     developer_name: "Mage",
     role_uuid: "4ee40330-ecdd-4f2f-98a8-eb1243428373",
@@ -191,6 +201,7 @@ export const FALLBACK_AGENTS: AgentRow[] = [
   {
     uuid: "0e38b510-41a8-5780-5e8f-568b2a4f2d6c",
     display_name: "Iso",
+    slug: "iso",
     description: null,
     developer_name: "Sequoia",
     role_uuid: "dbe8757e-9e92-4ed4-b39f-9dfc589691d4",
@@ -209,6 +220,7 @@ export const FALLBACK_AGENTS: AgentRow[] = [
   {
     uuid: "add6443a-41bd-e414-f6ad-e58d267f4e95",
     display_name: "Jett",
+    slug: "jett",
     description: null,
     developer_name: "Wushu",
     role_uuid: "dbe8757e-9e92-4ed4-b39f-9dfc589691d4",
@@ -227,6 +239,7 @@ export const FALLBACK_AGENTS: AgentRow[] = [
   {
     uuid: "601dbbe7-43ce-be57-2a40-4abd24953621",
     display_name: "KAY/O",
+    slug: "kayo",
     description: null,
     developer_name: "Grenadier",
     role_uuid: "1b47567f-8f7b-444b-aae3-b0c634622d10",
@@ -245,6 +258,7 @@ export const FALLBACK_AGENTS: AgentRow[] = [
   {
     uuid: "1e58de9c-4950-5125-93e9-a0aee9f98746",
     display_name: "Killjoy",
+    slug: "killjoy",
     description: null,
     developer_name: "Killjoy",
     role_uuid: "5fc02f99-4091-4486-a531-98459a3e95e9",
@@ -263,6 +277,7 @@ export const FALLBACK_AGENTS: AgentRow[] = [
   {
     uuid: "7c8a4701-4de6-9355-b254-e09bc2a34b72",
     display_name: "Miks",
+    slug: "miks",
     description: null,
     developer_name: "Iris",
     role_uuid: "4ee40330-ecdd-4f2f-98a8-eb1243428373",
@@ -281,6 +296,7 @@ export const FALLBACK_AGENTS: AgentRow[] = [
   {
     uuid: "bb2a4828-46eb-8cd1-e765-15848195d751",
     display_name: "Neon",
+    slug: "neon",
     description: null,
     developer_name: "Sprinter",
     role_uuid: "dbe8757e-9e92-4ed4-b39f-9dfc589691d4",
@@ -299,6 +315,7 @@ export const FALLBACK_AGENTS: AgentRow[] = [
   {
     uuid: "8e253930-4c05-31dd-1b6c-968525494517",
     display_name: "Omen",
+    slug: "omen",
     description: null,
     developer_name: "Wraith",
     role_uuid: "4ee40330-ecdd-4f2f-98a8-eb1243428373",
@@ -317,6 +334,7 @@ export const FALLBACK_AGENTS: AgentRow[] = [
   {
     uuid: "eb93336a-449b-9c1b-0a54-a891f7921d69",
     display_name: "Phoenix",
+    slug: "phoenix",
     description: null,
     developer_name: "Phoenix",
     role_uuid: "dbe8757e-9e92-4ed4-b39f-9dfc589691d4",
@@ -335,6 +353,7 @@ export const FALLBACK_AGENTS: AgentRow[] = [
   {
     uuid: "f94c3b30-42be-e959-889c-5aa313dba261",
     display_name: "Raze",
+    slug: "raze",
     description: null,
     developer_name: "Clay",
     role_uuid: "dbe8757e-9e92-4ed4-b39f-9dfc589691d4",
@@ -353,6 +372,7 @@ export const FALLBACK_AGENTS: AgentRow[] = [
   {
     uuid: "a3bfb853-43b2-7238-a4f1-ad90e9e46bcc",
     display_name: "Reyna",
+    slug: "reyna",
     description: null,
     developer_name: "Vampire",
     role_uuid: "dbe8757e-9e92-4ed4-b39f-9dfc589691d4",
@@ -371,6 +391,7 @@ export const FALLBACK_AGENTS: AgentRow[] = [
   {
     uuid: "569fdd95-4d10-43ab-ca70-79becc718b46",
     display_name: "Sage",
+    slug: "sage",
     description: null,
     developer_name: "Thorne",
     role_uuid: "5fc02f99-4091-4486-a531-98459a3e95e9",
@@ -389,6 +410,7 @@ export const FALLBACK_AGENTS: AgentRow[] = [
   {
     uuid: "6f2a04ca-43e0-be17-7f36-b3908627744d",
     display_name: "Skye",
+    slug: "skye",
     description: null,
     developer_name: "Guide",
     role_uuid: "1b47567f-8f7b-444b-aae3-b0c634622d10",
@@ -407,6 +429,7 @@ export const FALLBACK_AGENTS: AgentRow[] = [
   {
     uuid: "320b2a48-4d9b-a075-30f1-1f93a9b638fa",
     display_name: "Sova",
+    slug: "sova",
     description: null,
     developer_name: "Hunter",
     role_uuid: "1b47567f-8f7b-444b-aae3-b0c634622d10",
@@ -425,6 +448,7 @@ export const FALLBACK_AGENTS: AgentRow[] = [
   {
     uuid: "b444168c-4e35-8076-db47-ef9bf368f384",
     display_name: "Tejo",
+    slug: "tejo",
     description: null,
     developer_name: "Cashew",
     role_uuid: "1b47567f-8f7b-444b-aae3-b0c634622d10",
@@ -443,6 +467,7 @@ export const FALLBACK_AGENTS: AgentRow[] = [
   {
     uuid: "92eeef5d-43b5-1d4a-8d03-b3927a09034b",
     display_name: "Veto",
+    slug: "veto",
     description: null,
     developer_name: "Pine",
     role_uuid: "5fc02f99-4091-4486-a531-98459a3e95e9",
@@ -461,6 +486,7 @@ export const FALLBACK_AGENTS: AgentRow[] = [
   {
     uuid: "707eab51-4836-f488-046a-cda6bf494859",
     display_name: "Viper",
+    slug: "viper",
     description: null,
     developer_name: "Pandemic",
     role_uuid: "4ee40330-ecdd-4f2f-98a8-eb1243428373",
@@ -479,6 +505,7 @@ export const FALLBACK_AGENTS: AgentRow[] = [
   {
     uuid: "efba5359-4016-a1e5-7626-b1ae76895940",
     display_name: "Vyse",
+    slug: "vyse",
     description: null,
     developer_name: "Nox",
     role_uuid: "5fc02f99-4091-4486-a531-98459a3e95e9",
@@ -497,6 +524,7 @@ export const FALLBACK_AGENTS: AgentRow[] = [
   {
     uuid: "df1cb487-4902-002e-5c17-d28e83e78588",
     display_name: "Waylay",
+    slug: "waylay",
     description: null,
     developer_name: "Terra",
     role_uuid: "dbe8757e-9e92-4ed4-b39f-9dfc589691d4",
@@ -515,6 +543,7 @@ export const FALLBACK_AGENTS: AgentRow[] = [
   {
     uuid: "7f94d92c-4234-0a36-9646-3a87eb8b5c89",
     display_name: "Yoru",
+    slug: "yoru",
     description: null,
     developer_name: "Stealth",
     role_uuid: "dbe8757e-9e92-4ed4-b39f-9dfc589691d4",

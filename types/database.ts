@@ -187,6 +187,45 @@ export type Database = {
         }
         Relationships: []
       }
+      sync_runs: {
+        Row: {
+          duration_ms: number
+          endpoints_summary: Json
+          errors: string[]
+          id: number
+          new_current_act_uuid: string | null
+          ran_at: string
+          success: boolean
+          triggered_rank_reset: boolean
+          valorant_build_date: string | null
+          valorant_version: string | null
+        }
+        Insert: {
+          duration_ms: number
+          endpoints_summary: Json
+          errors?: string[]
+          id?: number
+          new_current_act_uuid?: string | null
+          ran_at?: string
+          success: boolean
+          triggered_rank_reset?: boolean
+          valorant_build_date?: string | null
+          valorant_version?: string | null
+        }
+        Update: {
+          duration_ms?: number
+          endpoints_summary?: Json
+          errors?: string[]
+          id?: number
+          new_current_act_uuid?: string | null
+          ran_at?: string
+          success?: boolean
+          triggered_rank_reset?: boolean
+          valorant_build_date?: string | null
+          valorant_version?: string | null
+        }
+        Relationships: []
+      }
       team_invites: {
         Row: {
           created_at: string
@@ -339,30 +378,36 @@ export type Database = {
       }
       valorant_acts: {
         Row: {
+          act_number: number
           created_at: string | null
           display_name: string
           end_time: string
           is_current: boolean | null
+          reset_processed: boolean
           season_uuid: string
           start_time: string
           updated_at: string | null
           uuid: string
         }
         Insert: {
+          act_number: number
           created_at?: string | null
           display_name: string
           end_time: string
           is_current?: boolean | null
+          reset_processed?: boolean
           season_uuid: string
           start_time: string
           updated_at?: string | null
           uuid: string
         }
         Update: {
+          act_number?: number
           created_at?: string | null
           display_name?: string
           end_time?: string
           is_current?: boolean | null
+          reset_processed?: boolean
           season_uuid?: string
           start_time?: string
           updated_at?: string | null
@@ -394,6 +439,7 @@ export type Database = {
           role_display_icon: string | null
           role_name: string
           role_uuid: string
+          slug: string
           updated_at: string | null
           uuid: string
         }
@@ -412,6 +458,7 @@ export type Database = {
           role_display_icon?: string | null
           role_name: string
           role_uuid: string
+          slug: string
           updated_at?: string | null
           uuid: string
         }
@@ -430,6 +477,76 @@ export type Database = {
           role_display_icon?: string | null
           role_name?: string
           role_uuid?: string
+          slug?: string
+          updated_at?: string | null
+          uuid?: string
+        }
+        Relationships: []
+      }
+      valorant_competitive_tiers: {
+        Row: {
+          asset_object_name: string | null
+          asset_path: string | null
+          created_at: string | null
+          raw_data: Json | null
+          tiers: Json
+          updated_at: string | null
+          uuid: string
+        }
+        Insert: {
+          asset_object_name?: string | null
+          asset_path?: string | null
+          created_at?: string | null
+          raw_data?: Json | null
+          tiers: Json
+          updated_at?: string | null
+          uuid: string
+        }
+        Update: {
+          asset_object_name?: string | null
+          asset_path?: string | null
+          created_at?: string | null
+          raw_data?: Json | null
+          tiers?: Json
+          updated_at?: string | null
+          uuid?: string
+        }
+        Relationships: []
+      }
+      valorant_events: {
+        Row: {
+          asset_path: string | null
+          created_at: string | null
+          display_name: string
+          end_time: string
+          is_current: boolean | null
+          raw_data: Json | null
+          short_display_name: string | null
+          start_time: string
+          updated_at: string | null
+          uuid: string
+        }
+        Insert: {
+          asset_path?: string | null
+          created_at?: string | null
+          display_name: string
+          end_time: string
+          is_current?: boolean | null
+          raw_data?: Json | null
+          short_display_name?: string | null
+          start_time: string
+          updated_at?: string | null
+          uuid: string
+        }
+        Update: {
+          asset_path?: string | null
+          created_at?: string | null
+          display_name?: string
+          end_time?: string
+          is_current?: boolean | null
+          raw_data?: Json | null
+          short_display_name?: string | null
+          start_time?: string
           updated_at?: string | null
           uuid?: string
         }
@@ -469,6 +586,78 @@ export type Database = {
           duration?: string | null
           is_team_voice_allowed?: boolean | null
           raw_data?: Json | null
+          updated_at?: string | null
+          uuid?: string
+        }
+        Relationships: []
+      }
+      valorant_gear: {
+        Row: {
+          asset_path: string | null
+          created_at: string | null
+          description: string | null
+          display_icon: string | null
+          display_name: string
+          raw_data: Json | null
+          shop_data: Json | null
+          updated_at: string | null
+          uuid: string
+        }
+        Insert: {
+          asset_path?: string | null
+          created_at?: string | null
+          description?: string | null
+          display_icon?: string | null
+          display_name: string
+          raw_data?: Json | null
+          shop_data?: Json | null
+          updated_at?: string | null
+          uuid: string
+        }
+        Update: {
+          asset_path?: string | null
+          created_at?: string | null
+          description?: string | null
+          display_icon?: string | null
+          display_name?: string
+          raw_data?: Json | null
+          shop_data?: Json | null
+          updated_at?: string | null
+          uuid?: string
+        }
+        Relationships: []
+      }
+      valorant_level_borders: {
+        Row: {
+          asset_path: string | null
+          created_at: string | null
+          display_name: string | null
+          level_number_appearance: string | null
+          raw_data: Json | null
+          small_player_card_appearance: string | null
+          starting_level: number
+          updated_at: string | null
+          uuid: string
+        }
+        Insert: {
+          asset_path?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          level_number_appearance?: string | null
+          raw_data?: Json | null
+          small_player_card_appearance?: string | null
+          starting_level: number
+          updated_at?: string | null
+          uuid: string
+        }
+        Update: {
+          asset_path?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          level_number_appearance?: string | null
+          raw_data?: Json | null
+          small_player_card_appearance?: string | null
+          starting_level?: number
           updated_at?: string | null
           uuid?: string
         }
@@ -524,6 +713,7 @@ export type Database = {
           created_at: string | null
           display_name: string
           end_time: string
+          episode_number: number | null
           is_current: boolean | null
           reset_processed: boolean
           start_time: string
@@ -534,6 +724,7 @@ export type Database = {
           created_at?: string | null
           display_name: string
           end_time: string
+          episode_number?: number | null
           is_current?: boolean | null
           reset_processed?: boolean
           start_time: string
@@ -544,11 +735,114 @@ export type Database = {
           created_at?: string | null
           display_name?: string
           end_time?: string
+          episode_number?: number | null
           is_current?: boolean | null
           reset_processed?: boolean
           start_time?: string
           updated_at?: string | null
           uuid?: string
+        }
+        Relationships: []
+      }
+      valorant_seasons_competitive: {
+        Row: {
+          asset_path: string | null
+          borders: Json | null
+          competitive_tiers_uuid: string
+          created_at: string | null
+          end_time: string
+          is_current: boolean | null
+          raw_data: Json | null
+          season_uuid: string
+          start_time: string
+          updated_at: string | null
+          uuid: string
+        }
+        Insert: {
+          asset_path?: string | null
+          borders?: Json | null
+          competitive_tiers_uuid: string
+          created_at?: string | null
+          end_time: string
+          is_current?: boolean | null
+          raw_data?: Json | null
+          season_uuid: string
+          start_time: string
+          updated_at?: string | null
+          uuid: string
+        }
+        Update: {
+          asset_path?: string | null
+          borders?: Json | null
+          competitive_tiers_uuid?: string
+          created_at?: string | null
+          end_time?: string
+          is_current?: boolean | null
+          raw_data?: Json | null
+          season_uuid?: string
+          start_time?: string
+          updated_at?: string | null
+          uuid?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "valorant_seasons_competitive_competitive_tiers_uuid_fkey"
+            columns: ["competitive_tiers_uuid"]
+            isOneToOne: false
+            referencedRelation: "valorant_competitive_tiers"
+            referencedColumns: ["uuid"]
+          },
+          {
+            foreignKeyName: "valorant_seasons_competitive_season_uuid_fkey"
+            columns: ["season_uuid"]
+            isOneToOne: false
+            referencedRelation: "valorant_seasons"
+            referencedColumns: ["uuid"]
+          },
+        ]
+      }
+      valorant_weapons: {
+        Row: {
+          asset_path: string | null
+          category: string
+          created_at: string | null
+          default_skin_uuid: string | null
+          display_icon: string | null
+          display_name: string
+          kill_stream_icon: string | null
+          raw_data: Json | null
+          shop_data: Json | null
+          updated_at: string | null
+          uuid: string
+          weapon_stats: Json | null
+        }
+        Insert: {
+          asset_path?: string | null
+          category: string
+          created_at?: string | null
+          default_skin_uuid?: string | null
+          display_icon?: string | null
+          display_name: string
+          kill_stream_icon?: string | null
+          raw_data?: Json | null
+          shop_data?: Json | null
+          updated_at?: string | null
+          uuid: string
+          weapon_stats?: Json | null
+        }
+        Update: {
+          asset_path?: string | null
+          category?: string
+          created_at?: string | null
+          default_skin_uuid?: string | null
+          display_icon?: string | null
+          display_name?: string
+          kill_stream_icon?: string | null
+          raw_data?: Json | null
+          shop_data?: Json | null
+          updated_at?: string | null
+          uuid?: string
+          weapon_stats?: Json | null
         }
         Relationships: []
       }
