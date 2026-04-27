@@ -5,7 +5,7 @@
 > table d'audit sync_runs.
 >
 > Date : 2026-04-27
-> Statut : En attente de validation utilisateur
+> Statut : Implémenté (2026-04-27)
 
 ---
 
