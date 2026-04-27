@@ -1,37 +1,19 @@
 // Supabase Edge Function: sync-valorant-data
-// Syncs Valorant game data (agents, maps, game modes, seasons, acts)
-// from valorant-api.com into Supabase tables.
+// Syncs 10 endpoints from valorant-api.com into Supabase tables and writes
+// an audit row to sync_runs. Rank reset is triggered on Act change.
 //
-// Auth: Bearer token must be a valid service_role JWT
-// Trigger: pg_cron daily at 3h UTC via pg_net, or manual curl
+// Auth: Bearer token must be a valid service_role JWT.
+// Trigger: pg_cron daily at 03:00 UTC via pg_net, or manual curl.
 //
 // Deploy: supabase functions deploy sync-valorant-data
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { BLOCKED_MAP_UUIDS, errorMessage, generateAgentSlug, parseActNumber, parseEpisodeNumber } from './helpers.ts';
 
-// === Types ===
-
-interface SyncResult {
-  status: 'success' | 'error';
-  fetched: number;
-  upserted: number;
-  error?: string;
-}
-
-interface SyncResponse {
-  success: boolean;
-  timestamp: string;
-  duration_ms: number;
-  results: {
-    agents: SyncResult;
-    maps: SyncResult;
-    game_modes: SyncResult;
-    seasons: SyncResult;
-    acts: SyncResult;
-  };
-  errors: string[];
-}
+// ============================================================
+// API response types (subset of fields we persist)
+// ============================================================
 
 interface ApiAgent {
   uuid: string;
@@ -43,14 +25,8 @@ interface ApiAgent {
   fullPortrait: string | null;
   killfeedPortrait: string | null;
   background: string | null;
-  abilities: Array<{
-    slot: string;
-    displayName: string;
-    description: string | null;
-    displayIcon: string | null;
-  }>;
+  abilities: Array<{ slot: string; displayName: string; description: string | null; displayIcon: string | null }>;
   isBaseContent: boolean;
-  isPlayableCharacter: boolean;
 }
 
 interface ApiMap {
@@ -82,109 +58,137 @@ interface ApiSeason {
   parentUuid: string | null;
 }
 
-// === Constants ===
+interface ApiSeasonCompetitive {
+  uuid: string;
+  startTime: string;
+  endTime: string;
+  seasonUuid: string;
+  competitiveTiersUuid: string;
+  borders: unknown[] | null;
+  assetPath: string | null;
+}
+
+interface ApiCompetitiveTier {
+  uuid: string;
+  assetObjectName: string | null;
+  tiers: unknown[];
+  assetPath: string | null;
+}
+
+interface ApiWeapon {
+  uuid: string;
+  displayName: string;
+  category: string;
+  defaultSkinUuid: string | null;
+  displayIcon: string | null;
+  killStreamIcon: string | null;
+  assetPath: string | null;
+  weaponStats: unknown | null;
+  shopData: unknown | null;
+}
+
+interface ApiGear {
+  uuid: string;
+  displayName: string;
+  description: string | null;
+  displayIcon: string | null;
+  assetPath: string | null;
+  shopData: unknown | null;
+}
+
+interface ApiLevelBorder {
+  uuid: string;
+  displayName: string | null;
+  startingLevel: number;
+  levelNumberAppearance: string | null;
+  smallPlayerCardAppearance: string | null;
+  assetPath: string | null;
+}
+
+interface ApiEvent {
+  uuid: string;
+  displayName: string;
+  shortDisplayName: string | null;
+  startTime: string;
+  endTime: string;
+  assetPath: string | null;
+}
+
+interface ApiVersion {
+  manifestId: string;
+  version: string;
+  buildDate: string;
+}
+
+interface SyncResult {
+  status: 'success' | 'error';
+  fetched: number;
+  upserted: number;
+  error?: string;
+}
+
+// ============================================================
+// Constants
+// ============================================================
 
 const API_BASE = 'https://valorant-api.com/v1';
 const FETCH_TIMEOUT_MS = 5000;
 const ENDPOINTS = {
+  version: `${API_BASE}/version`,
   agents: `${API_BASE}/agents?isPlayableCharacter=true`,
   maps: `${API_BASE}/maps`,
   gameModes: `${API_BASE}/gamemodes`,
   seasons: `${API_BASE}/seasons`,
-};
+  seasonsCompetitive: `${API_BASE}/seasons/competitive`,
+  competitiveTiers: `${API_BASE}/competitivetiers`,
+  weapons: `${API_BASE}/weapons`,
+  gear: `${API_BASE}/gear`,
+  levelBorders: `${API_BASE}/levelborders`,
+  events: `${API_BASE}/events`,
+} as const;
 
-// === Helpers ===
+// ============================================================
+// Helpers
+// ============================================================
 
 function log(event: string, data: Record<string, unknown> = {}): void {
   console.log(JSON.stringify({ event, ...data, ts: new Date().toISOString() }));
 }
 
-// Decode JWT payload without verification (auth is handled by checking role claim)
 function decodeJwtPayload(token: string): Record<string, unknown> | null {
   try {
     const parts = token.split('.');
     if (parts.length !== 3) return null;
-    const payload = JSON.parse(atob(parts[1]));
-    return payload;
+    return JSON.parse(atob(parts[1]));
   } catch {
     return null;
   }
 }
 
-async function fetchWithTimeout<T>(url: string): Promise<T[]> {
+async function fetchJson<T>(url: string): Promise<T> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
     const res = await fetch(url, { signal: controller.signal });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status} on ${url}`);
     const json = await res.json();
-    return json.data as T[];
+    return json.data as T;
   } finally {
     clearTimeout(timeout);
   }
 }
 
-// === Sync functions ===
+// ============================================================
+// Upsert functions — one per endpoint, all share the same shape:
+// (supabase, payload) -> SyncResult
+// ============================================================
 
-async function syncSeasons(
-  supabase: ReturnType<typeof createClient>,
-  allSeasons: ApiSeason[],
-): Promise<SyncResult> {
-  try {
-    const seasons = allSeasons.filter(
-      (s) => s.type === null && s.parentUuid === null && !s.displayName.includes('Closed Beta'),
-    );
-    const rows = seasons.map((s) => ({
-      uuid: s.uuid,
-      display_name: s.displayName,
-      start_time: s.startTime,
-      end_time: s.endTime,
-    }));
-    const { error } = await supabase.from('valorant_seasons').upsert(rows, { onConflict: 'uuid' });
-    if (error) throw error;
-    log('upsert_complete', { table: 'valorant_seasons', count: rows.length });
-    return { status: 'success', fetched: seasons.length, upserted: rows.length };
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    log('upsert_error', { table: 'valorant_seasons', error: msg });
-    return { status: 'error', fetched: 0, upserted: 0, error: msg };
-  }
-}
-
-async function syncActs(
-  supabase: ReturnType<typeof createClient>,
-  allSeasons: ApiSeason[],
-): Promise<SyncResult> {
-  try {
-    const acts = allSeasons.filter(
-      (s) => s.type === 'EAresSeasonType::Act' && s.parentUuid !== null,
-    );
-    const rows = acts.map((a) => ({
-      uuid: a.uuid,
-      display_name: a.displayName,
-      season_uuid: a.parentUuid!,
-      start_time: a.startTime,
-      end_time: a.endTime,
-    }));
-    const { error } = await supabase.from('valorant_acts').upsert(rows, { onConflict: 'uuid' });
-    if (error) throw error;
-    log('upsert_complete', { table: 'valorant_acts', count: rows.length });
-    return { status: 'success', fetched: acts.length, upserted: rows.length };
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    log('upsert_error', { table: 'valorant_acts', error: msg });
-    return { status: 'error', fetched: 0, upserted: 0, error: msg };
-  }
-}
-
-async function syncAgents(
-  supabase: ReturnType<typeof createClient>,
-  agents: ApiAgent[],
-): Promise<SyncResult> {
+async function upsertAgents(supabase: SupabaseClient, agents: ApiAgent[]): Promise<SyncResult> {
   try {
     const rows = agents.map((a) => ({
       uuid: a.uuid,
       display_name: a.displayName,
+      slug: generateAgentSlug(a.displayName),
       description: a.description,
       developer_name: a.developerName,
       role_uuid: a.role?.uuid ?? '',
@@ -208,18 +212,16 @@ async function syncAgents(
     log('upsert_complete', { table: 'valorant_agents', count: rows.length });
     return { status: 'success', fetched: agents.length, upserted: rows.length };
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
+    const msg = errorMessage(e);
     log('upsert_error', { table: 'valorant_agents', error: msg });
-    return { status: 'error', fetched: 0, upserted: 0, error: msg };
+    return { status: 'error', fetched: agents.length, upserted: 0, error: msg };
   }
 }
 
-async function syncMaps(
-  supabase: ReturnType<typeof createClient>,
-  maps: ApiMap[],
-): Promise<SyncResult> {
+async function upsertMaps(supabase: SupabaseClient, maps: ApiMap[]): Promise<SyncResult> {
   try {
-    const rows = maps.map((m) => ({
+    const filtered = maps.filter((m) => !BLOCKED_MAP_UUIDS.has(m.uuid));
+    const rows = filtered.map((m) => ({
       uuid: m.uuid,
       display_name: m.displayName,
       tactical_description: m.tacticalDescription,
@@ -231,19 +233,16 @@ async function syncMaps(
     }));
     const { error } = await supabase.from('valorant_maps').upsert(rows, { onConflict: 'uuid' });
     if (error) throw error;
-    log('upsert_complete', { table: 'valorant_maps', count: rows.length });
+    log('upsert_complete', { table: 'valorant_maps', count: rows.length, blocked: maps.length - filtered.length });
     return { status: 'success', fetched: maps.length, upserted: rows.length };
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
+    const msg = errorMessage(e);
     log('upsert_error', { table: 'valorant_maps', error: msg });
-    return { status: 'error', fetched: 0, upserted: 0, error: msg };
+    return { status: 'error', fetched: maps.length, upserted: 0, error: msg };
   }
 }
 
-async function syncGameModes(
-  supabase: ReturnType<typeof createClient>,
-  modes: ApiGameMode[],
-): Promise<SyncResult> {
+async function upsertGameModes(supabase: SupabaseClient, modes: ApiGameMode[]): Promise<SyncResult> {
   try {
     const rows = modes.map((m) => ({
       uuid: m.uuid,
@@ -260,203 +259,494 @@ async function syncGameModes(
     log('upsert_complete', { table: 'valorant_game_modes', count: rows.length });
     return { status: 'success', fetched: modes.length, upserted: rows.length };
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
+    const msg = errorMessage(e);
     log('upsert_error', { table: 'valorant_game_modes', error: msg });
+    return { status: 'error', fetched: modes.length, upserted: 0, error: msg };
+  }
+}
+
+async function upsertSeasons(supabase: SupabaseClient, allSeasons: ApiSeason[]): Promise<SyncResult> {
+  try {
+    // Episodes only (parentUuid === null and type is null in current API).
+    const seasons = allSeasons.filter(
+      (s) => s.parentUuid === null && !s.displayName.includes('Closed Beta'),
+    );
+    const rows = seasons.map((s) => ({
+      uuid: s.uuid,
+      display_name: s.displayName,
+      episode_number: parseEpisodeNumber(s.displayName),
+      start_time: s.startTime,
+      end_time: s.endTime,
+    }));
+    const { error } = await supabase.from('valorant_seasons').upsert(rows, { onConflict: 'uuid' });
+    if (error) throw error;
+    log('upsert_complete', { table: 'valorant_seasons', count: rows.length });
+    return { status: 'success', fetched: seasons.length, upserted: rows.length };
+  } catch (e) {
+    const msg = errorMessage(e);
+    log('upsert_error', { table: 'valorant_seasons', error: msg });
     return { status: 'error', fetched: 0, upserted: 0, error: msg };
   }
 }
 
-async function updateIsCurrent(supabase: ReturnType<typeof createClient>): Promise<void> {
+async function upsertActs(supabase: SupabaseClient, allSeasons: ApiSeason[]): Promise<SyncResult> {
+  try {
+    const acts = allSeasons.filter((s) => s.parentUuid !== null);
+    const rows = acts.map((a) => {
+      const actNumber = parseActNumber(a.displayName);
+      return {
+        uuid: a.uuid,
+        display_name: a.displayName,
+        act_number: actNumber ?? 0, // 0 sentinel; will be visible in audit if encountered
+        season_uuid: a.parentUuid!,
+        start_time: a.startTime,
+        end_time: a.endTime,
+      };
+    });
+
+    // Surface unparseable display_names so they can be added to parseActNumber
+    const unparseable = rows.filter((r) => r.act_number === 0).map((r) => r.display_name);
+    if (unparseable.length > 0) log('act_number_unparseable', { display_names: unparseable });
+
+    const { error } = await supabase.from('valorant_acts').upsert(rows, { onConflict: 'uuid' });
+    if (error) throw error;
+    log('upsert_complete', { table: 'valorant_acts', count: rows.length });
+    return { status: 'success', fetched: acts.length, upserted: rows.length };
+  } catch (e) {
+    const msg = errorMessage(e);
+    log('upsert_error', { table: 'valorant_acts', error: msg });
+    return { status: 'error', fetched: 0, upserted: 0, error: msg };
+  }
+}
+
+async function upsertCompetitiveTiers(supabase: SupabaseClient, tiers: ApiCompetitiveTier[]): Promise<SyncResult> {
+  try {
+    const rows = tiers.map((t) => ({
+      uuid: t.uuid,
+      asset_object_name: t.assetObjectName,
+      tiers: t.tiers as unknown,
+      asset_path: t.assetPath,
+      raw_data: t as unknown as Record<string, unknown>,
+    }));
+    const { error } = await supabase.from('valorant_competitive_tiers').upsert(rows, { onConflict: 'uuid' });
+    if (error) throw error;
+    log('upsert_complete', { table: 'valorant_competitive_tiers', count: rows.length });
+    return { status: 'success', fetched: tiers.length, upserted: rows.length };
+  } catch (e) {
+    const msg = errorMessage(e);
+    log('upsert_error', { table: 'valorant_competitive_tiers', error: msg });
+    return { status: 'error', fetched: tiers.length, upserted: 0, error: msg };
+  }
+}
+
+async function upsertSeasonsCompetitive(
+  supabase: SupabaseClient,
+  competitiveSeasons: ApiSeasonCompetitive[],
+  knownSeasonUuids: Set<string>,
+  knownTierUuids: Set<string>,
+): Promise<SyncResult> {
+  try {
+    // Skip rows whose FKs aren't satisfied (e.g. Closed Beta seasons we filtered out).
+    const filtered = competitiveSeasons.filter(
+      (cs) => knownSeasonUuids.has(cs.seasonUuid) && knownTierUuids.has(cs.competitiveTiersUuid),
+    );
+    const skipped = competitiveSeasons.length - filtered.length;
+    const rows = filtered.map((cs) => ({
+      uuid: cs.uuid,
+      season_uuid: cs.seasonUuid,
+      competitive_tiers_uuid: cs.competitiveTiersUuid,
+      start_time: cs.startTime,
+      end_time: cs.endTime,
+      borders: cs.borders ?? [],
+      asset_path: cs.assetPath,
+      raw_data: cs as unknown as Record<string, unknown>,
+    }));
+    const { error } = await supabase.from('valorant_seasons_competitive').upsert(rows, { onConflict: 'uuid' });
+    if (error) throw error;
+    log('upsert_complete', { table: 'valorant_seasons_competitive', count: rows.length, fk_skipped: skipped });
+    return { status: 'success', fetched: competitiveSeasons.length, upserted: rows.length };
+  } catch (e) {
+    const msg = errorMessage(e);
+    log('upsert_error', { table: 'valorant_seasons_competitive', error: msg });
+    return { status: 'error', fetched: competitiveSeasons.length, upserted: 0, error: msg };
+  }
+}
+
+async function upsertWeapons(supabase: SupabaseClient, weapons: ApiWeapon[]): Promise<SyncResult> {
+  try {
+    const rows = weapons.map((w) => ({
+      uuid: w.uuid,
+      display_name: w.displayName,
+      category: w.category,
+      default_skin_uuid: w.defaultSkinUuid,
+      display_icon: w.displayIcon,
+      kill_stream_icon: w.killStreamIcon,
+      asset_path: w.assetPath,
+      weapon_stats: w.weaponStats,
+      shop_data: w.shopData,
+      raw_data: w as unknown as Record<string, unknown>,
+    }));
+    const { error } = await supabase.from('valorant_weapons').upsert(rows, { onConflict: 'uuid' });
+    if (error) throw error;
+    log('upsert_complete', { table: 'valorant_weapons', count: rows.length });
+    return { status: 'success', fetched: weapons.length, upserted: rows.length };
+  } catch (e) {
+    const msg = errorMessage(e);
+    log('upsert_error', { table: 'valorant_weapons', error: msg });
+    return { status: 'error', fetched: weapons.length, upserted: 0, error: msg };
+  }
+}
+
+async function upsertGear(supabase: SupabaseClient, gear: ApiGear[]): Promise<SyncResult> {
+  try {
+    const rows = gear.map((g) => ({
+      uuid: g.uuid,
+      display_name: g.displayName,
+      description: g.description,
+      display_icon: g.displayIcon,
+      asset_path: g.assetPath,
+      shop_data: g.shopData,
+      raw_data: g as unknown as Record<string, unknown>,
+    }));
+    const { error } = await supabase.from('valorant_gear').upsert(rows, { onConflict: 'uuid' });
+    if (error) throw error;
+    log('upsert_complete', { table: 'valorant_gear', count: rows.length });
+    return { status: 'success', fetched: gear.length, upserted: rows.length };
+  } catch (e) {
+    const msg = errorMessage(e);
+    log('upsert_error', { table: 'valorant_gear', error: msg });
+    return { status: 'error', fetched: gear.length, upserted: 0, error: msg };
+  }
+}
+
+async function upsertLevelBorders(supabase: SupabaseClient, borders: ApiLevelBorder[]): Promise<SyncResult> {
+  try {
+    const rows = borders.map((b) => ({
+      uuid: b.uuid,
+      display_name: b.displayName,
+      starting_level: b.startingLevel,
+      level_number_appearance: b.levelNumberAppearance,
+      small_player_card_appearance: b.smallPlayerCardAppearance,
+      asset_path: b.assetPath,
+      raw_data: b as unknown as Record<string, unknown>,
+    }));
+    const { error } = await supabase.from('valorant_level_borders').upsert(rows, { onConflict: 'uuid' });
+    if (error) throw error;
+    log('upsert_complete', { table: 'valorant_level_borders', count: rows.length });
+    return { status: 'success', fetched: borders.length, upserted: rows.length };
+  } catch (e) {
+    const msg = errorMessage(e);
+    log('upsert_error', { table: 'valorant_level_borders', error: msg });
+    return { status: 'error', fetched: borders.length, upserted: 0, error: msg };
+  }
+}
+
+async function upsertEvents(supabase: SupabaseClient, events: ApiEvent[]): Promise<SyncResult> {
+  try {
+    // Skip events without a display_name (table requires it NOT NULL).
+    // Riot occasionally returns events with null displayName (e.g. 2025 LNY).
+    const valid = events.filter((e) => e.displayName != null);
+    const skipped = events.length - valid.length;
+    const rows = valid.map((e) => ({
+      uuid: e.uuid,
+      display_name: e.displayName,
+      short_display_name: e.shortDisplayName,
+      start_time: e.startTime,
+      end_time: e.endTime,
+      asset_path: e.assetPath,
+      raw_data: e as unknown as Record<string, unknown>,
+    }));
+    const { error } = await supabase.from('valorant_events').upsert(rows, { onConflict: 'uuid' });
+    if (error) throw error;
+    log('upsert_complete', { table: 'valorant_events', count: rows.length, skipped_null_name: skipped });
+    return { status: 'success', fetched: events.length, upserted: rows.length };
+  } catch (e) {
+    const msg = errorMessage(e);
+    log('upsert_error', { table: 'valorant_events', error: msg });
+    return { status: 'error', fetched: events.length, upserted: 0, error: msg };
+  }
+}
+
+// ============================================================
+// is_current update — one declarative pass per table with a temporal flag.
+// ============================================================
+
+async function updateIsCurrent(supabase: SupabaseClient, errors: string[]): Promise<void> {
   const now = new Date().toISOString();
+  const tables = ['valorant_seasons', 'valorant_acts', 'valorant_seasons_competitive', 'valorant_events'] as const;
 
-  await supabase
-    .from('valorant_seasons')
-    .update({ is_current: true })
-    .lte('start_time', now)
-    .gte('end_time', now)
-    .eq('is_current', false);
+  for (const table of tables) {
+    const { error: e1 } = await supabase
+      .from(table)
+      .update({ is_current: true })
+      .lte('start_time', now)
+      .gte('end_time', now)
+      .eq('is_current', false);
+    if (e1) {
+      errors.push(`is_current set ${table}: ${e1.message}`);
+      log('is_current_error', { table, op: 'set', error: e1.message });
+    }
 
-  await supabase
-    .from('valorant_seasons')
-    .update({ is_current: false })
-    .eq('is_current', true)
-    .or(`start_time.gt.${now},end_time.lt.${now}`);
-
-  await supabase
-    .from('valorant_acts')
-    .update({ is_current: true })
-    .lte('start_time', now)
-    .gte('end_time', now)
-    .eq('is_current', false);
-
-  await supabase
-    .from('valorant_acts')
-    .update({ is_current: false })
-    .eq('is_current', true)
-    .or(`start_time.gt.${now},end_time.lt.${now}`);
-
+    const { error: e2 } = await supabase
+      .from(table)
+      .update({ is_current: false })
+      .eq('is_current', true)
+      .or(`start_time.gt.${now},end_time.lt.${now}`);
+    if (e2) {
+      errors.push(`is_current clear ${table}: ${e2.message}`);
+      log('is_current_error', { table, op: 'clear', error: e2.message });
+    }
+  }
   log('is_current_updated');
 }
 
-// === Main handler ===
+// ============================================================
+// Main handler
+// ============================================================
 
 serve(async (req: Request) => {
   const startTime = Date.now();
 
-  // 1. Auth check: Bearer token must be a service_role JWT
+  // 1. Auth: Bearer must be a valid service_role JWT
   const authHeader = req.headers.get('Authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     log('auth_failed', { reason: 'missing_header' });
-    return new Response(
-      JSON.stringify({ error: 'Unauthorized' }),
-      { status: 401, headers: { 'Content-Type': 'application/json' } },
-    );
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
   }
-
   const token = authHeader.replace('Bearer ', '');
   const payload = decodeJwtPayload(token);
   if (!payload || payload.role !== 'service_role') {
     log('auth_failed', { reason: 'invalid_role', role: payload?.role });
-    return new Response(
-      JSON.stringify({ error: 'Unauthorized' }),
-      { status: 401, headers: { 'Content-Type': 'application/json' } },
-    );
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
   }
 
-  // 2. Create admin Supabase client using the token from the request
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-  // Jalon 1.3: snapshot current Season BEFORE any sync/upsert
-  // Used after updateIsCurrent() to detect Season change
-  const { data: seasonBefore } = await supabase
-    .from('valorant_seasons')
+  // 2. Snapshot: current Act before any sync (for rank reset detection).
+  const { data: actBefore } = await supabase
+    .from('valorant_acts')
     .select('uuid')
     .eq('is_current', true)
     .order('start_time', { ascending: false })
     .limit(1)
     .maybeSingle();
 
-  log('sync_start');
+  log('sync_start', { act_before: actBefore?.uuid ?? null });
   const errors: string[] = [];
-  const results: Record<string, SyncResult> = {};
+  const endpointsSummary: Record<string, SyncResult> = {};
 
-  // 3. Fetch all 4 endpoints in parallel
-  const [agentsResult, mapsResult, modesResult, seasonsResult] = await Promise.allSettled([
-    fetchWithTimeout<ApiAgent>(ENDPOINTS.agents),
-    fetchWithTimeout<ApiMap>(ENDPOINTS.maps),
-    fetchWithTimeout<ApiGameMode>(ENDPOINTS.gameModes),
-    fetchWithTimeout<ApiSeason>(ENDPOINTS.seasons),
+  // 3. Fetch /version (single object, separate from the parallel batch).
+  let version: ApiVersion | null = null;
+  try {
+    version = await fetchJson<ApiVersion>(ENDPOINTS.version);
+    log('version_fetched', { version: version.version, build_date: version.buildDate });
+  } catch (e) {
+    errors.push(`version fetch: ${errorMessage(e)}`);
+    log('version_error', { error: errorMessage(e) });
+  }
+
+  // 4. Fetch the 10 list endpoints in parallel.
+  const [
+    agentsRes, mapsRes, modesRes, seasonsRes, seasonsCompRes,
+    competitiveTiersRes, weaponsRes, gearRes, levelBordersRes, eventsRes,
+  ] = await Promise.allSettled([
+    fetchJson<ApiAgent[]>(ENDPOINTS.agents),
+    fetchJson<ApiMap[]>(ENDPOINTS.maps),
+    fetchJson<ApiGameMode[]>(ENDPOINTS.gameModes),
+    fetchJson<ApiSeason[]>(ENDPOINTS.seasons),
+    fetchJson<ApiSeasonCompetitive[]>(ENDPOINTS.seasonsCompetitive),
+    fetchJson<ApiCompetitiveTier[]>(ENDPOINTS.competitiveTiers),
+    fetchJson<ApiWeapon[]>(ENDPOINTS.weapons),
+    fetchJson<ApiGear[]>(ENDPOINTS.gear),
+    fetchJson<ApiLevelBorder[]>(ENDPOINTS.levelBorders),
+    fetchJson<ApiEvent[]>(ENDPOINTS.events),
   ]);
 
   log('fetch_complete', {
-    agents: agentsResult.status,
-    maps: mapsResult.status,
-    game_modes: modesResult.status,
-    seasons: seasonsResult.status,
+    agents: agentsRes.status, maps: mapsRes.status, game_modes: modesRes.status,
+    seasons: seasonsRes.status, seasons_competitive: seasonsCompRes.status,
+    competitive_tiers: competitiveTiersRes.status, weapons: weaponsRes.status,
+    gear: gearRes.status, level_borders: levelBordersRes.status, events: eventsRes.status,
   });
 
-  // 4. Process seasons + acts first (FK dependency)
-  if (seasonsResult.status === 'fulfilled') {
-    results.seasons = await syncSeasons(supabase, seasonsResult.value);
-    if (results.seasons.status === 'error') errors.push(`seasons: ${results.seasons.error}`);
+  // 5. Process each endpoint. Order matters where FKs exist:
+  //    seasons before acts; competitive_tiers + seasons before seasons_competitive.
 
-    results.acts = await syncActs(supabase, seasonsResult.value);
-    if (results.acts.status === 'error') errors.push(`acts: ${results.acts.error}`);
+  if (seasonsRes.status === 'fulfilled') {
+    endpointsSummary.seasons = await upsertSeasons(supabase, seasonsRes.value);
+    if (endpointsSummary.seasons.error) errors.push(`seasons: ${endpointsSummary.seasons.error}`);
+    endpointsSummary.acts = await upsertActs(supabase, seasonsRes.value);
+    if (endpointsSummary.acts.error) errors.push(`acts: ${endpointsSummary.acts.error}`);
   } else {
-    const msg = seasonsResult.reason?.message ?? 'Fetch failed';
-    results.seasons = { status: 'error', fetched: 0, upserted: 0, error: msg };
-    results.acts = { status: 'error', fetched: 0, upserted: 0, error: msg };
+    const msg = errorMessage(seasonsRes.reason);
+    endpointsSummary.seasons = { status: 'error', fetched: 0, upserted: 0, error: msg };
+    endpointsSummary.acts = { status: 'error', fetched: 0, upserted: 0, error: msg };
     errors.push(`seasons fetch: ${msg}`);
   }
 
-  // 5. Process agents, maps, game_modes
-  if (agentsResult.status === 'fulfilled') {
-    results.agents = await syncAgents(supabase, agentsResult.value);
-    if (results.agents.status === 'error') errors.push(`agents: ${results.agents.error}`);
+  if (competitiveTiersRes.status === 'fulfilled') {
+    endpointsSummary.competitive_tiers = await upsertCompetitiveTiers(supabase, competitiveTiersRes.value);
+    if (endpointsSummary.competitive_tiers.error) errors.push(`competitive_tiers: ${endpointsSummary.competitive_tiers.error}`);
   } else {
-    const msg = agentsResult.reason?.message ?? 'Fetch failed';
-    results.agents = { status: 'error', fetched: 0, upserted: 0, error: msg };
+    const msg = errorMessage(competitiveTiersRes.reason);
+    endpointsSummary.competitive_tiers = { status: 'error', fetched: 0, upserted: 0, error: msg };
+    errors.push(`competitive_tiers fetch: ${msg}`);
+  }
+
+  if (seasonsCompRes.status === 'fulfilled' && seasonsRes.status === 'fulfilled' && competitiveTiersRes.status === 'fulfilled') {
+    // Mirror upsertSeasons filter exactly: parentUuid === null AND not Closed Beta.
+    const knownSeasonUuids = new Set(
+      seasonsRes.value
+        .filter((s) => s.parentUuid === null && !s.displayName.includes('Closed Beta'))
+        .map((s) => s.uuid),
+    );
+    const knownTierUuids = new Set(competitiveTiersRes.value.map((t) => t.uuid));
+    endpointsSummary.seasons_competitive = await upsertSeasonsCompetitive(
+      supabase, seasonsCompRes.value, knownSeasonUuids, knownTierUuids,
+    );
+    if (endpointsSummary.seasons_competitive.error) errors.push(`seasons_competitive: ${endpointsSummary.seasons_competitive.error}`);
+  } else if (seasonsCompRes.status === 'rejected') {
+    const msg = errorMessage(seasonsCompRes.reason);
+    endpointsSummary.seasons_competitive = { status: 'error', fetched: 0, upserted: 0, error: msg };
+    errors.push(`seasons_competitive fetch: ${msg}`);
+  }
+
+  if (agentsRes.status === 'fulfilled') {
+    endpointsSummary.agents = await upsertAgents(supabase, agentsRes.value);
+    if (endpointsSummary.agents.error) errors.push(`agents: ${endpointsSummary.agents.error}`);
+  } else {
+    const msg = errorMessage(agentsRes.reason);
+    endpointsSummary.agents = { status: 'error', fetched: 0, upserted: 0, error: msg };
     errors.push(`agents fetch: ${msg}`);
   }
 
-  if (mapsResult.status === 'fulfilled') {
-    results.maps = await syncMaps(supabase, mapsResult.value);
-    if (results.maps.status === 'error') errors.push(`maps: ${results.maps.error}`);
+  if (mapsRes.status === 'fulfilled') {
+    endpointsSummary.maps = await upsertMaps(supabase, mapsRes.value);
+    if (endpointsSummary.maps.error) errors.push(`maps: ${endpointsSummary.maps.error}`);
   } else {
-    const msg = mapsResult.reason?.message ?? 'Fetch failed';
-    results.maps = { status: 'error', fetched: 0, upserted: 0, error: msg };
+    const msg = errorMessage(mapsRes.reason);
+    endpointsSummary.maps = { status: 'error', fetched: 0, upserted: 0, error: msg };
     errors.push(`maps fetch: ${msg}`);
   }
 
-  if (modesResult.status === 'fulfilled') {
-    results.game_modes = await syncGameModes(supabase, modesResult.value);
-    if (results.game_modes.status === 'error') errors.push(`game_modes: ${results.game_modes.error}`);
+  if (modesRes.status === 'fulfilled') {
+    endpointsSummary.game_modes = await upsertGameModes(supabase, modesRes.value);
+    if (endpointsSummary.game_modes.error) errors.push(`game_modes: ${endpointsSummary.game_modes.error}`);
   } else {
-    const msg = modesResult.reason?.message ?? 'Fetch failed';
-    results.game_modes = { status: 'error', fetched: 0, upserted: 0, error: msg };
+    const msg = errorMessage(modesRes.reason);
+    endpointsSummary.game_modes = { status: 'error', fetched: 0, upserted: 0, error: msg };
     errors.push(`game_modes fetch: ${msg}`);
   }
 
-  // 6. Update is_current on seasons and acts
-  try {
-    await updateIsCurrent(supabase);
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    errors.push(`is_current update: ${msg}`);
-    log('is_current_error', { error: msg });
+  if (weaponsRes.status === 'fulfilled') {
+    endpointsSummary.weapons = await upsertWeapons(supabase, weaponsRes.value);
+    if (endpointsSummary.weapons.error) errors.push(`weapons: ${endpointsSummary.weapons.error}`);
+  } else {
+    const msg = errorMessage(weaponsRes.reason);
+    endpointsSummary.weapons = { status: 'error', fetched: 0, upserted: 0, error: msg };
+    errors.push(`weapons fetch: ${msg}`);
   }
 
-  // Jalon 1.3: detect Season change and trigger rank reset
-  const { data: seasonAfter } = await supabase
-    .from('valorant_seasons')
+  if (gearRes.status === 'fulfilled') {
+    endpointsSummary.gear = await upsertGear(supabase, gearRes.value);
+    if (endpointsSummary.gear.error) errors.push(`gear: ${endpointsSummary.gear.error}`);
+  } else {
+    const msg = errorMessage(gearRes.reason);
+    endpointsSummary.gear = { status: 'error', fetched: 0, upserted: 0, error: msg };
+    errors.push(`gear fetch: ${msg}`);
+  }
+
+  if (levelBordersRes.status === 'fulfilled') {
+    endpointsSummary.level_borders = await upsertLevelBorders(supabase, levelBordersRes.value);
+    if (endpointsSummary.level_borders.error) errors.push(`level_borders: ${endpointsSummary.level_borders.error}`);
+  } else {
+    const msg = errorMessage(levelBordersRes.reason);
+    endpointsSummary.level_borders = { status: 'error', fetched: 0, upserted: 0, error: msg };
+    errors.push(`level_borders fetch: ${msg}`);
+  }
+
+  if (eventsRes.status === 'fulfilled') {
+    endpointsSummary.events = await upsertEvents(supabase, eventsRes.value);
+    if (endpointsSummary.events.error) errors.push(`events: ${endpointsSummary.events.error}`);
+  } else {
+    const msg = errorMessage(eventsRes.reason);
+    endpointsSummary.events = { status: 'error', fetched: 0, upserted: 0, error: msg };
+    errors.push(`events fetch: ${msg}`);
+  }
+
+  // 6. Update is_current flags across the 4 temporal tables.
+  await updateIsCurrent(supabase, errors);
+
+  // 7. Detect Act change → trigger rank reset (Jalon 1.4 trigger).
+  // actBefore non-null guard: prevents reset on a fresh DB or when sync runs
+  // before any is_current row exists.
+  let triggeredRankReset = false;
+  let newCurrentActUuid: string | null = null;
+
+  const { data: actAfter } = await supabase
+    .from('valorant_acts')
     .select('uuid, reset_processed')
     .eq('is_current', true)
     .order('start_time', { ascending: false })
     .limit(1)
     .maybeSingle();
 
+  newCurrentActUuid = actAfter?.uuid ?? null;
+
   if (
-    seasonAfter &&
-    seasonAfter.uuid !== seasonBefore?.uuid &&
-    !seasonAfter.reset_processed
+    actBefore?.uuid &&
+    actAfter?.uuid &&
+    actBefore.uuid !== actAfter.uuid &&
+    !actAfter.reset_processed
   ) {
-    log('season_change_detected', {
-      from: seasonBefore?.uuid ?? 'none',
-      to: seasonAfter.uuid,
+    log('act_change_detected', { from: actBefore.uuid, to: actAfter.uuid });
+
+    const { error: invokeError } = await supabase.functions.invoke('handle-rank-reset', {
+      body: { act_uuid: actAfter.uuid },
     });
 
-    const { error } = await supabase.functions.invoke('handle-rank-reset', {
-      body: { season_uuid: seasonAfter.uuid },
-    });
-
-    if (error) {
-      log('rank_reset_error', { error: error.message });
+    if (invokeError) {
+      errors.push(`rank_reset invoke: ${invokeError.message}`);
+      log('rank_reset_error', { error: invokeError.message });
     } else {
-      log('rank_reset_triggered', { season_uuid: seasonAfter.uuid });
+      triggeredRankReset = true;
+      log('rank_reset_triggered', { act_uuid: actAfter.uuid });
     }
   }
 
-  // 7. Build and return response
-  const response: SyncResponse = {
-    success: errors.length === 0,
-    timestamp: new Date().toISOString(),
-    duration_ms: Date.now() - startTime,
-    results: {
-      agents: results.agents ?? { status: 'error', fetched: 0, upserted: 0, error: 'not processed' },
-      maps: results.maps ?? { status: 'error', fetched: 0, upserted: 0, error: 'not processed' },
-      game_modes: results.game_modes ?? { status: 'error', fetched: 0, upserted: 0, error: 'not processed' },
-      seasons: results.seasons ?? { status: 'error', fetched: 0, upserted: 0, error: 'not processed' },
-      acts: results.acts ?? { status: 'error', fetched: 0, upserted: 0, error: 'not processed' },
-    },
+  // 8. Persist a sync_runs audit row (always, even on partial errors).
+  const durationMs = Date.now() - startTime;
+  const success = errors.length === 0;
+
+  const { error: auditError } = await supabase.from('sync_runs').insert({
+    duration_ms: durationMs,
+    success,
+    valorant_version: version?.version ?? null,
+    valorant_build_date: version?.buildDate ?? null,
+    endpoints_summary: endpointsSummary,
     errors,
-  };
-
-  log('sync_complete', { success: response.success, duration_ms: response.duration_ms });
-
-  return new Response(JSON.stringify(response, null, 2), {
-    status: 200,
-    headers: { 'Content-Type': 'application/json' },
+    triggered_rank_reset: triggeredRankReset,
+    new_current_act_uuid: newCurrentActUuid,
   });
+  if (auditError) {
+    log('sync_runs_insert_error', { error: auditError.message });
+    // Don't add to errors[] — audit failure shouldn't change the response
+  }
+
+  log('sync_complete', { success, duration_ms: durationMs, errors_count: errors.length });
+
+  return new Response(
+    JSON.stringify({
+      success,
+      timestamp: new Date().toISOString(),
+      duration_ms: durationMs,
+      endpoints_summary: endpointsSummary,
+      errors,
+      triggered_rank_reset: triggeredRankReset,
+      new_current_act_uuid: newCurrentActUuid,
+    }, null, 2),
+    { status: 200, headers: { 'Content-Type': 'application/json' } },
+  );
 });
