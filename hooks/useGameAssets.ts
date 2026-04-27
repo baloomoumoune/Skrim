@@ -8,12 +8,11 @@ import type { Database } from '@/types/database';
 type AgentRow = Database['public']['Tables']['valorant_agents']['Row'];
 type MapRow = Database['public']['Tables']['valorant_maps']['Row'];
 
-// Adapt DB row to existing AgentMeta shape for backward compat.
-// id format must match profiles.main_agent values: displayName lowercased, non-alphanumeric removed.
-// Example: "KAY/O" -> "kayo", "Gekko" -> "gekko"
+// Adapt DB row to AgentMeta shape. id is the Riot UUID — same value stored in
+// profiles.main_agent (FK to valorant_agents.uuid since jalon 1.4).
 function toAgentMeta(row: AgentRow): AgentMeta {
   return {
-    id: row.display_name.toLowerCase().replace(/[^a-z0-9]/g, ''),
+    id: row.uuid,
     name: row.display_name,
     role: row.role_name.toLowerCase() as AgentRole,
     image: row.display_icon ?? '',

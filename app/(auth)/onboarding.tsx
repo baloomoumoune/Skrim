@@ -48,9 +48,9 @@ const RANKS_BY_GAME: Record<string, RankMeta[]> = {
   valorant: VALORANT_RANKS,
 };
 
-function toAgentMeta(row: { display_name: string; role_name: string; display_icon: string | null }): AgentMeta {
+function toAgentMeta(row: { uuid: string; display_name: string; role_name: string; display_icon: string | null }): AgentMeta {
   return {
-    id: row.display_name.toLowerCase().replace(/[^a-z0-9]/g, ''),
+    id: row.uuid,
     name: row.display_name,
     role: row.role_name.toLowerCase() as AgentRole,
     image: row.display_icon ?? '',
