@@ -2,7 +2,7 @@
 -- Cron Jobs — mirror of production state
 -- These jobs are active in Supabase production via pg_cron + pg_net.
 -- This file reflects the exact state of cron.job in production.
--- Last verified: 2026-04-27 (Jalon 1.4 cron repair)
+-- Last verified: 2026-04-28 (added daily-sync-report)
 -- ============================================================
 
 -- Job 1: Expire old matches
@@ -31,6 +31,26 @@ SELECT cron.schedule(
     ),
     body := '{}'::jsonb,
     timeout_milliseconds := 60000
+  ) AS request_id;
+  $$
+);
+
+-- Job 3: Daily monitoring report posted to Discord
+-- Schedule: daily at 03:05 UTC (5min after the sync to leave room for completion).
+-- Reads sync_runs + cron.job_run_details + net._http_response and posts an embed
+-- to the discord_monitoring_webhook secret stored in Vault.
+SELECT cron.schedule(
+  'daily-sync-report',
+  '5 3 * * *',
+  $$
+  SELECT net.http_post(
+    url := 'https://nlmtbflnzykjuwqigctt.supabase.co/functions/v1/daily-sync-report',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'service_role_key')
+    ),
+    body := '{}'::jsonb,
+    timeout_milliseconds := 30000
   ) AS request_id;
   $$
 );
