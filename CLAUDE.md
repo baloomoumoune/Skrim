@@ -73,7 +73,7 @@ Auth protection in `_layout.tsx` redirects based on session state:
 - Types in `types/database.ts` — all table Row/Insert/Update types
 - Edge Functions in `supabase/functions/`:
   - `send-push` — Push notifications via Expo
-  - `on-match-event` — Match lifecycle events
+  - `on-listing-event` — Lobby event lifecycle (push fan-out)
 - Game assets (agents, maps, ranks) stored in Supabase Storage `game-assets` bucket
 - Asset URL helpers in `lib/game-assets.ts`
 
