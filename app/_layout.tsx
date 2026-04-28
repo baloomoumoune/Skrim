@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Stack, useRouter, useSegments, usePathname, useRootNavigationState } from 'expo-router';
+import { Stack, useRouter, useSegments, useRootNavigationState } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { useColorScheme } from 'nativewind';
@@ -10,9 +10,6 @@ import { useAuthStore } from '@/stores/authStore';
 import { useThemeStore } from '@/stores/themeStore';
 import { useGameStore } from '@/stores/gameStore';
 import LoadingScreen from '@/components/LoadingScreen';
-import ActiveMatchBanner from '@/components/ActiveMatchBanner';
-import { useActiveMatch } from '@/hooks/useActiveMatch';
-import { useActiveMatchStore } from '@/stores/activeMatchStore';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useHydrateValorantData } from '@/hooks/useHydrateValorantData';
 
@@ -59,8 +56,8 @@ function useProtectedRoute() {
       return;
     }
 
-    // Allow authenticated routes: tabs + match detail + invite deep link
-    const inAllowedGroup = inTabsGroup || segments[0] === 'match' || segments[0] === 'invite';
+    // Allow authenticated routes: tabs + invite deep link
+    const inAllowedGroup = inTabsGroup || segments[0] === 'invite';
     if (session && !needsOnboarding && !inAllowedGroup) {
       if (__DEV__) console.log('[ProtectedRoute] → tabs');
       router.replace('/(tabs)/home');
@@ -78,17 +75,12 @@ function useProtectedRoute() {
 
 function InitialLayout() {
   useSession();
-  const { isLoading, session } = useAuthStore();
+  const { isLoading } = useAuthStore();
   const hasRedirected = useProtectedRoute();
   const [showLoading, setShowLoading] = useState(true);
   const splashHidden = useRef(false);
   const initTheme = useThemeStore((s) => s.initTheme);
   const initGame = useGameStore((s) => s.initGame);
-  const segments = useSegments();
-  const activeMatch = useActiveMatchStore((s) => s.activeMatch);
-
-  // Start polling for active match when authenticated
-  useActiveMatch();
 
   // Register push notifications + setup listeners
   useNotifications();
@@ -115,16 +107,9 @@ function InitialLayout() {
     setShowLoading(false);
   };
 
-  // Compute bottom offset: tab bar height when in tabs group
-  const inTabs = segments[0] === '(tabs)';
-  const bannerBottomOffset = inTabs ? 90 : 20; // ~56 tab bar + 34 safe area approx
-
   return (
     <>
       <Stack screenOptions={{ headerShown: false }} />
-      {session && activeMatch && (
-        <ActiveMatchBanner bottomOffset={bannerBottomOffset} />
-      )}
       {(isLoading || showLoading) && (
         <LoadingScreen onFinish={handleLoadingFinish} minDuration={1500} />
       )}

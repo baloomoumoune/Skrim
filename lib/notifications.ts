@@ -1,7 +1,6 @@
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
-import { router } from 'expo-router';
 import { supabase } from './supabase';
 
 // expo-device requires a native build — guard for Expo Go
@@ -102,11 +101,9 @@ export function setupNotificationListeners(): () => void {
     const data = response.notification.request.content.data;
     if (__DEV__) {
       console.log('[Notifications] Tapped:', data);
-    }
-
-    // Navigate to match detail if match_id is provided
-    if (data?.match_id && typeof data.match_id === 'string') {
-      router.push(`/match/${data.match_id}`);
+      if (data?.match_id) {
+        console.warn('[Notifications] match_id payload received but match routes are removed');
+      }
     }
   });
 
