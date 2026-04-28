@@ -9,13 +9,13 @@ import { getAssetUrl, getGameLogoUrl } from '@/lib/game-assets';
 import type { Region, GameEnum, Platform } from '@/types/database';
 import type { AgentMeta, RankMeta } from '@/lib/game-assets';
 
-const REGION_FLAGS: Record<string, string> = {
-  eu: '🇪🇺',
-  na: '🇺🇸',
-  apac: '🌏',
-  sa: '🇧🇷',
-  me: '🇸🇦',
-  oce: '🇦🇺',
+const REGION_FLAGS: Record<Region, string> = {
+  EU:    '🇪🇺',
+  NA:    '🇺🇸',
+  LATAM: '🇲🇽',
+  BR:    '🇧🇷',
+  KR:    '🇰🇷',
+  APAC:  '🌏',
 };
 
 interface WelcomeScreenProps {
@@ -111,7 +111,7 @@ export default function WelcomeScreen({
           >
             <Text style={styles.badgeEmoji}>{REGION_FLAGS[region] ?? '🌍'}</Text>
             <Text style={[styles.badgeText, { color: c.textSecondary }]}>
-              {region.toUpperCase()}
+              {region}
             </Text>
           </View>
 

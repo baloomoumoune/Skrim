@@ -26,23 +26,43 @@ import { useValorantDataStore } from '@/stores/valorantDataStore';
 
 import ProgressBar from '@/components/onboarding/ProgressBar';
 import StepProfile from '@/components/onboarding/StepProfile';
-import StepGame from '@/components/onboarding/StepGame';
+import StepBirthdate from '@/components/onboarding/StepBirthdate';
+import StepRegion from '@/components/onboarding/StepRegion';
+import StepServers from '@/components/onboarding/StepServers';
 import StepPlatform from '@/components/onboarding/StepPlatform';
 import StepRank from '@/components/onboarding/StepRank';
+import StepLanguages from '@/components/onboarding/StepLanguages';
+import StepVoice from '@/components/onboarding/StepVoice';
 import StepAgent from '@/components/onboarding/StepAgent';
 import WelcomeScreen from '@/components/onboarding/WelcomeScreen';
 import { useUsernameCheck } from '@/components/onboarding/useUsernameCheck';
 
-type StepId = 'profile' | 'game' | 'platform' | 'rank' | 'agent' | 'welcome';
+type StepId =
+  | 'profile'
+  | 'birthdate'
+  | 'region'
+  | 'servers'
+  | 'platform'
+  | 'rank'
+  | 'languages'
+  | 'voice'
+  | 'agent'
+  | 'welcome';
 
 const STEP_META: Record<StepId, { title: string; subtitle: string }> = {
-  profile: { title: 'Your profile', subtitle: 'Set up your identity on SCRIM' },
-  game: { title: 'Choose your game', subtitle: 'Select the game you play the most' },
-  platform: { title: 'Choose your platform', subtitle: 'How do you play?' },
-  rank: { title: 'Select your rank', subtitle: 'Tell us about your competitive level' },
-  agent: { title: 'Pick your agent', subtitle: 'Choose the character you main' },
-  welcome: { title: '', subtitle: '' },
+  profile:   { title: 'Your profile',         subtitle: 'Set up your identity on SCRIM' },
+  birthdate: { title: 'Your birthdate',       subtitle: 'You must be 13 or older' },
+  region:    { title: 'Your region',          subtitle: 'Pick your Riot account region' },
+  servers:   { title: 'Your servers',         subtitle: 'Where do you usually play?' },
+  platform:  { title: 'Choose your platform', subtitle: 'How do you play?' },
+  rank:      { title: 'Select your rank',     subtitle: 'Tell us about your competitive level' },
+  languages: { title: 'Languages',            subtitle: 'Who can you play with in voice?' },
+  voice:     { title: 'Voice chat',           subtitle: 'Do you use voice in scrims?' },
+  agent:     { title: 'Pick your agent',      subtitle: 'Choose the character you main' },
+  welcome:   { title: '',                     subtitle: '' },
 };
+
+const VALORANT_GAME: GameEnum = 'valorant';
 
 const RANKS_BY_GAME: Record<string, RankMeta[]> = {
   valorant: VALORANT_RANKS,
@@ -66,38 +86,46 @@ export default function OnboardingScreen() {
   const setSelectedGame = useGameStore((s) => s.setSelectedGame);
   const storeAgents = useValorantDataStore((s) => s.agents);
 
-  // State
   const [stepIndex, setStepIndex] = useState(0);
   const [direction, setDirection] = useState<'forward' | 'back'>('forward');
+
+  // Profile
   const [username, setUsername] = useState('');
-  const [region, setRegion] = useState<Region>('eu');
-  const [game, setGame] = useState<GameEnum>('valorant');
+  const [avatarUri, setAvatarUri] = useState<string | null>(null);
+
+  // Find Lasts fields
+  const [birthdate, setBirthdate] = useState<Date | null>(null);
+  const [region, setRegion] = useState<Region | null>(null);
+  const [servers, setServers] = useState<string[]>([]);
+  const [primaryLanguage, setPrimaryLanguage] = useState<string>('en');
+  const [secondaryLanguages, setSecondaryLanguages] = useState<string[]>([]);
+  const [voiceEnabled, setVoiceEnabled] = useState<boolean | null>(null);
+
+  // Game-specific
+  const game = VALORANT_GAME;
   const [platform, setPlatform] = useState<PlatformType | null>(null);
   const [currentRank, setCurrentRank] = useState<string | null>(null);
   const [mainAgent, setMainAgent] = useState<string | null>(null);
-  const [avatarUri, setAvatarUri] = useState<string | null>(null);
+
   const [saving, setSaving] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
   const { status: usernameStatus, checkUsername } = useUsernameCheck();
 
-  // Dynamic steps based on game multiplatform support
   const isMultiplatform = GAME_MULTIPLATFORM[game] ?? false;
   const steps: StepId[] = useMemo(() => {
-    const base: StepId[] = ['profile', 'game'];
+    const base: StepId[] = ['profile', 'birthdate', 'region', 'servers'];
     if (isMultiplatform) base.push('platform');
-    base.push('rank', 'agent', 'welcome');
+    base.push('rank', 'languages', 'voice', 'agent', 'welcome');
     return base;
   }, [isMultiplatform]);
 
   const currentStepId = steps[stepIndex];
   const totalSteps = steps.length;
 
-  // Derived data
   const gameRanks = RANKS_BY_GAME[game] ?? [];
   const gameAgents = game === 'valorant' ? storeAgents.map(toAgentMeta) : [];
 
-  // Username handler
   const handleUsernameChange = useCallback(
     (text: string) => {
       setUsername(text);
@@ -106,34 +134,34 @@ export default function OnboardingScreen() {
     [checkUsername],
   );
 
-  const handleGameChange = useCallback((newGame: GameEnum) => {
-    setGame(newGame);
-    setCurrentRank(null);
-    setMainAgent(null);
-    setPlatform(null);
+  const handleRegionChange = useCallback((next: Region) => {
+    setRegion(next);
+    setServers([]);
   }, []);
 
-  // Step validation
+  const ageOk = useMemo(() => {
+    if (!birthdate) return false;
+    const ageYears = (Date.now() - birthdate.getTime()) / (365.25 * 24 * 3600 * 1000);
+    return ageYears >= 13;
+  }, [birthdate]);
+
   const canContinue = (() => {
     switch (currentStepId) {
-      case 'profile':
-        return username.trim().length >= 3 && usernameStatus === 'available';
-      case 'game':
-        return true;
-      case 'platform':
-        return platform !== null;
-      case 'rank':
-        return currentRank !== null;
-      case 'agent':
-        return mainAgent !== null;
-      default:
-        return false;
+      case 'profile':   return username.trim().length >= 3 && usernameStatus === 'available';
+      case 'birthdate': return ageOk;
+      case 'region':    return region !== null;
+      case 'servers':   return servers.length > 0;
+      case 'platform':  return platform !== null;
+      case 'rank':      return currentRank !== null;
+      case 'languages': return primaryLanguage.length > 0;
+      case 'voice':     return voiceEnabled !== null;
+      case 'agent':     return mainAgent !== null;
+      default:          return false;
     }
   })();
 
-  const isSkippable = currentStepId === 'rank' || currentStepId === 'agent';
+  const isSkippable = currentStepId === 'agent';
 
-  // Navigation
   const goNext = () => {
     if (stepIndex < totalSteps - 1) {
       setDirection('forward');
@@ -151,24 +179,18 @@ export default function OnboardingScreen() {
   };
 
   const handleSkip = () => {
-    if (currentStepId === 'rank') {
-      setCurrentRank(null);
-    } else if (currentStepId === 'agent') {
-      setMainAgent(null);
-    }
+    if (currentStepId === 'agent') setMainAgent(null);
     goNext();
   };
 
-  // Save
   const handleSave = async () => {
     const trimmed = username.trim();
-    if (trimmed.length < 3 || !user) return;
+    if (trimmed.length < 3 || !user || !birthdate || !region || !currentRank) return;
 
     setSaving(true);
     try {
       let avatarUrl: string | null = null;
 
-      // Upload avatar if picked
       if (avatarUri) {
         try {
           const ext = avatarUri.split('.').pop()?.split('?')[0]?.toLowerCase() ?? 'jpg';
@@ -195,16 +217,21 @@ export default function OnboardingScreen() {
         }
       }
 
-      // Upsert profile
+      const platformValue: PlatformType = isMultiplatform && platform ? platform : 'pc';
+
       const profilePayload = {
         id: user.id,
         username: trimmed,
+        birthdate: birthdate.toISOString().slice(0, 10),
         region,
         preferred_game: game,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         current_rank: currentRank,
         main_agent: mainAgent,
-        platform: isMultiplatform ? platform : null,
+        platform: platformValue,
+        primary_language: primaryLanguage,
+        secondary_languages: secondaryLanguages,
+        voice_enabled: voiceEnabled ?? false,
         ...(avatarUrl ? { avatar_url: avatarUrl } : {}),
       };
 
@@ -219,6 +246,14 @@ export default function OnboardingScreen() {
       if (__DEV__) console.log('[Onboarding] Save result:', { data, error });
 
       if (error) throw error;
+
+      // Replace profile_servers selection
+      await supabase.from('profile_servers').delete().eq('profile_id', user.id);
+      if (servers.length > 0) {
+        const rows = servers.map((server_id) => ({ profile_id: user.id, server_id }));
+        const { error: serversErr } = await supabase.from('profile_servers').insert(rows);
+        if (serversErr && __DEV__) console.error('[Onboarding] profile_servers insert error:', serversErr);
+      }
 
       setSelectedGame(game);
       setProfile(data as Profile);
@@ -237,7 +272,6 @@ export default function OnboardingScreen() {
     }
   };
 
-  // Welcome screen — no header/footer
   if (currentStepId === 'welcome') {
     return (
       <View
@@ -253,7 +287,7 @@ export default function OnboardingScreen() {
         <WelcomeScreen
           username={username}
           avatarUri={avatarUri}
-          region={region}
+          region={region ?? 'EU'}
           game={game}
           currentRank={currentRank}
           mainAgent={mainAgent}
@@ -275,7 +309,6 @@ export default function OnboardingScreen() {
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        {/* Fixed header */}
         <View style={styles.headerFixed}>
           <ProgressBar currentStep={stepIndex} totalSteps={totalSteps} />
 
@@ -304,17 +337,12 @@ export default function OnboardingScreen() {
               transition={{ type: 'timing', duration: 250 }}
               style={styles.titleBlock}
             >
-              <Text style={[styles.title, { color: c.textPrimary }]}>
-                {meta.title}
-              </Text>
-              <Text style={[styles.subtitle, { color: c.textSecondary }]}>
-                {meta.subtitle}
-              </Text>
+              <Text style={[styles.title, { color: c.textPrimary }]}>{meta.title}</Text>
+              <Text style={[styles.subtitle, { color: c.textSecondary }]}>{meta.subtitle}</Text>
             </MotiView>
           </AnimatePresence>
         </View>
 
-        {/* Scrollable content */}
         <ScrollView
           ref={scrollRef}
           contentContainerStyle={styles.scrollContent}
@@ -334,26 +362,45 @@ export default function OnboardingScreen() {
                   username={username}
                   onUsernameChange={handleUsernameChange}
                   usernameStatus={usernameStatus}
-                  region={region}
-                  onRegionChange={setRegion}
                   avatarUri={avatarUri}
                   onAvatarPick={setAvatarUri}
                 />
               </MotiView>
             )}
 
-            {currentStepId === 'game' && (
+            {currentStepId === 'birthdate' && (
               <MotiView
-                key="step-game"
+                key="step-birthdate"
                 from={{ opacity: 0, translateX: direction === 'forward' ? 30 : -30 }}
                 animate={{ opacity: 1, translateX: 0 }}
                 exit={{ opacity: 0, translateX: direction === 'forward' ? -30 : 30 }}
                 transition={{ type: 'timing', duration: 280 }}
               >
-                <StepGame
-                  selectedGame={game}
-                  onSelectGame={handleGameChange}
-                />
+                <StepBirthdate value={birthdate} onChange={setBirthdate} />
+              </MotiView>
+            )}
+
+            {currentStepId === 'region' && (
+              <MotiView
+                key="step-region"
+                from={{ opacity: 0, translateX: direction === 'forward' ? 30 : -30 }}
+                animate={{ opacity: 1, translateX: 0 }}
+                exit={{ opacity: 0, translateX: direction === 'forward' ? -30 : 30 }}
+                transition={{ type: 'timing', duration: 280 }}
+              >
+                <StepRegion value={region} onChange={handleRegionChange} />
+              </MotiView>
+            )}
+
+            {currentStepId === 'servers' && region && (
+              <MotiView
+                key="step-servers"
+                from={{ opacity: 0, translateX: direction === 'forward' ? 30 : -30 }}
+                animate={{ opacity: 1, translateX: 0 }}
+                exit={{ opacity: 0, translateX: direction === 'forward' ? -30 : 30 }}
+                transition={{ type: 'timing', duration: 280 }}
+              >
+                <StepServers region={region} value={servers} onChange={setServers} />
               </MotiView>
             )}
 
@@ -365,10 +412,7 @@ export default function OnboardingScreen() {
                 exit={{ opacity: 0, translateX: direction === 'forward' ? -30 : 30 }}
                 transition={{ type: 'timing', duration: 280 }}
               >
-                <StepPlatform
-                  selectedPlatform={platform}
-                  onSelectPlatform={setPlatform}
-                />
+                <StepPlatform selectedPlatform={platform} onSelectPlatform={setPlatform} />
               </MotiView>
             )}
 
@@ -386,6 +430,35 @@ export default function OnboardingScreen() {
                   game={game}
                   ranks={gameRanks}
                 />
+              </MotiView>
+            )}
+
+            {currentStepId === 'languages' && (
+              <MotiView
+                key="step-languages"
+                from={{ opacity: 0, translateX: direction === 'forward' ? 30 : -30 }}
+                animate={{ opacity: 1, translateX: 0 }}
+                exit={{ opacity: 0, translateX: direction === 'forward' ? -30 : 30 }}
+                transition={{ type: 'timing', duration: 280 }}
+              >
+                <StepLanguages
+                  primary={primaryLanguage}
+                  secondary={secondaryLanguages}
+                  onPrimaryChange={setPrimaryLanguage}
+                  onSecondaryChange={setSecondaryLanguages}
+                />
+              </MotiView>
+            )}
+
+            {currentStepId === 'voice' && (
+              <MotiView
+                key="step-voice"
+                from={{ opacity: 0, translateX: direction === 'forward' ? 30 : -30 }}
+                animate={{ opacity: 1, translateX: 0 }}
+                exit={{ opacity: 0, translateX: direction === 'forward' ? -30 : 30 }}
+                transition={{ type: 'timing', duration: 280 }}
+              >
+                <StepVoice value={voiceEnabled} onChange={setVoiceEnabled} />
               </MotiView>
             )}
 
@@ -408,7 +481,6 @@ export default function OnboardingScreen() {
           </AnimatePresence>
         </ScrollView>
 
-        {/* Fixed bottom */}
         <View
           style={[
             styles.bottomFixed,
@@ -428,21 +500,13 @@ export default function OnboardingScreen() {
               disabled={!canContinue}
               activeOpacity={0.85}
             >
-              <Text style={[styles.continueText, { color: c.background }]}>
-                Continue
-              </Text>
+              <Text style={[styles.continueText, { color: c.background }]}>Continue</Text>
             </TouchableOpacity>
           </MotiView>
 
           {isSkippable && (
-            <TouchableOpacity
-              style={styles.skipBtn}
-              onPress={handleSkip}
-              activeOpacity={0.6}
-            >
-              <Text style={[styles.skipText, { color: c.textTertiary }]}>
-                Skip for now
-              </Text>
+            <TouchableOpacity style={styles.skipBtn} onPress={handleSkip} activeOpacity={0.6}>
+              <Text style={[styles.skipText, { color: c.textTertiary }]}>Skip for now</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -454,12 +518,8 @@ export default function OnboardingScreen() {
 const CONTENT_PAD = 24;
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  flex: {
-    flex: 1,
-  },
+  container: { flex: 1 },
+  flex: { flex: 1 },
   headerFixed: {
     paddingHorizontal: CONTENT_PAD,
     paddingTop: 16,
