@@ -225,7 +225,6 @@ export default function OnboardingScreen() {
         birthdate: birthdate.toISOString().slice(0, 10),
         region,
         preferred_game: game,
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         current_rank: currentRank,
         main_agent: mainAgent,
         platform: platformValue,
