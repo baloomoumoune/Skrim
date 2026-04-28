@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -21,11 +21,19 @@ import { useGameStore } from '@/stores/gameStore';
 import { useGameAssets } from '@/hooks/useGameAssets';
 import { GAME_ACCENTS, GAME_MULTIPLATFORM } from '@/lib/constants';
 import { formatRank } from '@/lib/game-assets';
-import type { Platform } from '@/types/database';
+import type { Platform, Region } from '@/types/database';
 import { supabase } from '@/lib/supabase';
 import { useTeam } from '@/hooks/useTeam';
 import { TeamInitials } from '@/components/TeamInitials';
 import AssetPickerModal, { PickerItem } from '@/components/AssetPickerModal';
+import BottomSheetEditor from '@/components/BottomSheetEditor';
+import StepRegion from '@/components/onboarding/StepRegion';
+import StepServers from '@/components/onboarding/StepServers';
+import StepLanguages from '@/components/onboarding/StepLanguages';
+import StepVoice from '@/components/onboarding/StepVoice';
+import { getRegionLabel } from '@/lib/valorant-regions';
+import { getServerById } from '@/lib/valorant-servers';
+import { getLanguageByCode } from '@/lib/languages';
 
 const THEME_OPTIONS: { value: ThemePreference; label: string; icon: React.ComponentProps<typeof Ionicons>['name'] }[] = [
   { value: 'system', label: 'Auto', icon: 'phone-portrait-outline' },
@@ -54,6 +62,37 @@ export default function ProfileScreen() {
   const [showRankPicker, setShowRankPicker] = useState(false);
   const [showAgentPicker, setShowAgentPicker] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  // Find Lasts editors
+  const [showRegionEditor, setShowRegionEditor] = useState(false);
+  const [showServersEditor, setShowServersEditor] = useState(false);
+  const [showLanguagesEditor, setShowLanguagesEditor] = useState(false);
+  const [showVoiceEditor, setShowVoiceEditor] = useState(false);
+
+  // Local draft state for editors
+  const [draftRegion, setDraftRegion] = useState<Region | null>(null);
+  const [draftServers, setDraftServers] = useState<string[]>([]);
+  const [draftPrimaryLang, setDraftPrimaryLang] = useState<string>('en');
+  const [draftSecondaryLangs, setDraftSecondaryLangs] = useState<string[]>([]);
+  const [savingField, setSavingField] = useState(false);
+  const [profileServers, setProfileServers] = useState<string[]>([]);
+
+  // Hydrate the user's saved servers
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('profile_servers')
+        .select('server_id')
+        .eq('profile_id', user.id);
+      if (cancelled) return;
+      setProfileServers((data ?? []).map((r) => r.server_id));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   // Auto-open rank picker when navigated with ?openRankEditor=true (from Home banner CTA)
   useEffect(() => {
@@ -211,6 +250,162 @@ export default function ProfileScreen() {
         },
       },
     ]);
+  };
+
+  // Birthdate badge
+  const ageInfo = useMemo(() => {
+    if (!profile?.birthdate) return { years: null as number | null, badge: '—' };
+    const ms = Date.now() - new Date(profile.birthdate).getTime();
+    const years = Math.floor(ms / (365.25 * 24 * 3600 * 1000));
+    return { years, badge: years >= 18 ? '18+' : 'Under 18' };
+  }, [profile?.birthdate]);
+
+  const formattedBirthdate = useMemo(() => {
+    if (!profile?.birthdate) return '—';
+    return new Date(profile.birthdate).toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  }, [profile?.birthdate]);
+
+  const openRegionEditor = () => {
+    setDraftRegion((profile?.region as Region | undefined) ?? null);
+    setShowRegionEditor(true);
+  };
+
+  const openServersEditor = () => {
+    setDraftServers(profileServers);
+    setShowServersEditor(true);
+  };
+
+  const openLanguagesEditor = () => {
+    setDraftPrimaryLang(profile?.primary_language ?? 'en');
+    setDraftSecondaryLangs(profile?.secondary_languages ?? []);
+    setShowLanguagesEditor(true);
+  };
+
+  const saveRegion = async () => {
+    if (!user || !profile || !draftRegion || draftRegion === profile.region) {
+      setShowRegionEditor(false);
+      return;
+    }
+    Alert.alert(
+      'Change region?',
+      'Changing your region will clear your selected servers. You will be asked to pick new ones.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Change',
+          style: 'destructive',
+          onPress: async () => {
+            setSavingField(true);
+            try {
+              await supabase.from('profile_servers').delete().eq('profile_id', user.id);
+              const { error } = await supabase
+                .from('profiles')
+                .update({ region: draftRegion })
+                .eq('id', user.id);
+              if (error) throw error;
+              setProfile({ ...profile, region: draftRegion });
+              setProfileServers([]);
+              setShowRegionEditor(false);
+              setDraftServers([]);
+              setShowServersEditor(true);
+            } catch {
+              Alert.alert('Error', 'Failed to update region.');
+            } finally {
+              setSavingField(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const saveServers = async () => {
+    if (!user) return;
+    setSavingField(true);
+    try {
+      await supabase.from('profile_servers').delete().eq('profile_id', user.id);
+      if (draftServers.length > 0) {
+        const rows = draftServers.map((server_id) => ({ profile_id: user.id, server_id }));
+        const { error } = await supabase.from('profile_servers').insert(rows);
+        if (error) throw error;
+      }
+      setProfileServers(draftServers);
+      setShowServersEditor(false);
+    } catch {
+      Alert.alert('Error', 'Failed to update servers.');
+    } finally {
+      setSavingField(false);
+    }
+  };
+
+  const saveLanguages = async () => {
+    if (!user || !profile) return;
+    setSavingField(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          primary_language: draftPrimaryLang,
+          secondary_languages: draftSecondaryLangs,
+        })
+        .eq('id', user.id);
+      if (error) throw error;
+      setProfile({
+        ...profile,
+        primary_language: draftPrimaryLang,
+        secondary_languages: draftSecondaryLangs,
+      });
+      setShowLanguagesEditor(false);
+    } catch {
+      Alert.alert('Error', 'Failed to update languages.');
+    } finally {
+      setSavingField(false);
+    }
+  };
+
+  const saveVoice = async (next: boolean) => {
+    if (!user || !profile) return;
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ voice_enabled: next })
+        .eq('id', user.id);
+      if (error) throw error;
+      setProfile({ ...profile, voice_enabled: next });
+      setShowVoiceEditor(false);
+    } catch {
+      Alert.alert('Error', 'Failed to update voice setting.');
+    }
+  };
+
+  const handlePlatformChange = (next: Platform) => {
+    if (!user || !profile || profile.platform === next) return;
+    Alert.alert(
+      'Change platform?',
+      'Changing your platform changes who you see in Find — not who can see you. Continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Change',
+          onPress: async () => {
+            try {
+              const { error } = await supabase
+                .from('profiles')
+                .update({ platform: next })
+                .eq('id', user.id);
+              if (error) throw error;
+              setProfile({ ...profile, platform: next });
+            } catch {
+              Alert.alert('Error', 'Failed to update platform.');
+            }
+          },
+        },
+      ],
+    );
   };
 
   const cardStyle = {
@@ -532,7 +727,7 @@ export default function ProfileScreen() {
 
               {/* Main Agent */}
               <TouchableOpacity
-                className="flex-row items-center justify-between px-4 py-4 rounded-2xl"
+                className="flex-row items-center justify-between px-4 py-4 rounded-2xl mb-3"
                 style={cardStyle}
                 onPress={() => setShowAgentPicker(true)}
                 activeOpacity={0.7}
@@ -561,6 +756,75 @@ export default function ProfileScreen() {
                 )}
               </TouchableOpacity>
 
+              {/* Servers */}
+              <TouchableOpacity
+                className="flex-row items-center justify-between px-4 py-4 rounded-2xl mb-3"
+                style={cardStyle}
+                onPress={openServersEditor}
+                activeOpacity={0.7}
+              >
+                <View className="flex-row items-center gap-3">
+                  <Ionicons name="server-outline" size={18} color={c.textSecondary} />
+                  <Text className="text-[14px]" style={{ color: c.textPrimary }}>Servers</Text>
+                </View>
+                <View className="flex-row items-center gap-1">
+                  <Text className="text-[13px] font-medium" style={{ color: c.textSecondary }} numberOfLines={1}>
+                    {profileServers.length === 0
+                      ? 'Select'
+                      : profileServers.length === 1
+                        ? (getServerById(profileServers[0])?.displayName ?? '1 server')
+                        : `${profileServers.length} servers`}
+                  </Text>
+                  <Ionicons name="chevron-forward" size={14} color={c.textTertiary} />
+                </View>
+              </TouchableOpacity>
+
+              {/* Languages */}
+              <TouchableOpacity
+                className="flex-row items-center justify-between px-4 py-4 rounded-2xl mb-3"
+                style={cardStyle}
+                onPress={openLanguagesEditor}
+                activeOpacity={0.7}
+              >
+                <View className="flex-row items-center gap-3">
+                  <Ionicons name="chatbubbles-outline" size={18} color={c.textSecondary} />
+                  <Text className="text-[14px]" style={{ color: c.textPrimary }}>Languages</Text>
+                </View>
+                <View className="flex-row items-center gap-1">
+                  <Text className="text-[13px] font-medium" style={{ color: c.textSecondary }}>
+                    {(() => {
+                      const primary = getLanguageByCode(profile?.primary_language ?? 'en')?.native ?? 'EN';
+                      const extra = profile?.secondary_languages?.length ?? 0;
+                      return extra > 0 ? `${primary} +${extra}` : primary;
+                    })()}
+                  </Text>
+                  <Ionicons name="chevron-forward" size={14} color={c.textTertiary} />
+                </View>
+              </TouchableOpacity>
+
+              {/* Voice */}
+              <TouchableOpacity
+                className="flex-row items-center justify-between px-4 py-4 rounded-2xl"
+                style={cardStyle}
+                onPress={() => setShowVoiceEditor(true)}
+                activeOpacity={0.7}
+              >
+                <View className="flex-row items-center gap-3">
+                  <Ionicons
+                    name={profile?.voice_enabled ? 'mic' : 'mic-off'}
+                    size={18}
+                    color={c.textSecondary}
+                  />
+                  <Text className="text-[14px]" style={{ color: c.textPrimary }}>Voice chat</Text>
+                </View>
+                <View className="flex-row items-center gap-1">
+                  <Text className="text-[13px] font-medium" style={{ color: c.textSecondary }}>
+                    {profile?.voice_enabled ? 'Yes' : 'No'}
+                  </Text>
+                  <Ionicons name="chevron-forward" size={14} color={c.textTertiary} />
+                </View>
+              </TouchableOpacity>
+
               {/* Platform toggle (only for multiplatform games) */}
               {isMultiplatform && (
                 <>
@@ -587,19 +851,7 @@ export default function ProfileScreen() {
                         <TouchableOpacity
                           key={p.value}
                           activeOpacity={0.7}
-                          onPress={async () => {
-                            if (!user || !profile) return;
-                            try {
-                              const { error } = await supabase
-                                .from('profiles')
-                                .update({ platform: p.value })
-                                .eq('id', user.id);
-                              if (error) throw error;
-                              setProfile({ ...profile, platform: p.value });
-                            } catch {
-                              Alert.alert('Error', 'Failed to update platform.');
-                            }
-                          }}
+                          onPress={() => handlePlatformChange(p.value)}
                           style={{
                             flex: 1,
                             flexDirection: 'row',
@@ -755,7 +1007,7 @@ export default function ProfileScreen() {
                 Account
               </Text>
               <View className="rounded-2xl overflow-hidden mb-6" style={cardStyle}>
-                {/* Region */}
+                {/* Birthdate (read-only) */}
                 <View
                   style={{
                     flexDirection: 'row',
@@ -768,16 +1020,42 @@ export default function ProfileScreen() {
                   }}
                 >
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                    <Ionicons name="globe-outline" size={18} color={c.textSecondary} />
-                    <Text style={{ fontSize: 14, color: c.textPrimary }}>Region</Text>
+                    <Ionicons name="calendar-outline" size={18} color={c.textSecondary} />
+                    <Text style={{ fontSize: 14, color: c.textPrimary }}>Birthdate</Text>
                   </View>
-                  <Text style={{ fontSize: 13, fontWeight: '500', color: c.textSecondary }}>
-                    {(profile?.region ?? '—').toUpperCase()}
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Text style={{ fontSize: 13, fontWeight: '500', color: c.textSecondary }}>
+                      {formattedBirthdate}
+                    </Text>
+                    <View
+                      style={{
+                        paddingHorizontal: 8,
+                        paddingVertical: 2,
+                        borderRadius: 6,
+                        backgroundColor: ageInfo.years != null && ageInfo.years >= 18
+                          ? `${game.accent}20`
+                          : isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontSize: 11,
+                          fontWeight: '700',
+                          color: ageInfo.years != null && ageInfo.years >= 18
+                            ? game.accent
+                            : c.textSecondary,
+                        }}
+                      >
+                        {ageInfo.badge}
+                      </Text>
+                    </View>
+                  </View>
                 </View>
 
-                {/* Game */}
-                <View
+                {/* Region (editable, with cascade) */}
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={openRegionEditor}
                   style={{
                     flexDirection: 'row',
                     alignItems: 'center',
@@ -787,13 +1065,16 @@ export default function ProfileScreen() {
                   }}
                 >
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                    <Ionicons name="game-controller-outline" size={18} color={c.textSecondary} />
-                    <Text style={{ fontSize: 14, color: c.textPrimary }}>Game</Text>
+                    <Ionicons name="globe-outline" size={18} color={c.textSecondary} />
+                    <Text style={{ fontSize: 14, color: c.textPrimary }}>Region</Text>
                   </View>
-                  <Text style={{ fontSize: 13, fontWeight: '500', color: c.textSecondary }}>
-                    {game.name}
-                  </Text>
-                </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Text style={{ fontSize: 13, fontWeight: '500', color: c.textSecondary }}>
+                      {profile?.region ? getRegionLabel(profile.region as Region) : '—'}
+                    </Text>
+                    <Ionicons name="chevron-forward" size={14} color={c.textTertiary} />
+                  </View>
+                </TouchableOpacity>
               </View>
 
               {/* Sign Out */}
@@ -842,6 +1123,62 @@ export default function ProfileScreen() {
         accentColor={game.accent}
         numColumns={3}
       />
+
+      {/* Region editor */}
+      <BottomSheetEditor
+        visible={showRegionEditor}
+        title="Region"
+        onClose={() => setShowRegionEditor(false)}
+        onSave={saveRegion}
+        saving={savingField}
+        saveDisabled={!draftRegion || draftRegion === profile?.region}
+      >
+        <StepRegion value={draftRegion} onChange={setDraftRegion} />
+      </BottomSheetEditor>
+
+      {/* Servers editor */}
+      <BottomSheetEditor
+        visible={showServersEditor}
+        title="Servers"
+        onClose={() => setShowServersEditor(false)}
+        onSave={saveServers}
+        saving={savingField}
+        saveDisabled={draftServers.length === 0}
+      >
+        {profile?.region && (
+          <StepServers
+            region={profile.region as Region}
+            value={draftServers}
+            onChange={setDraftServers}
+          />
+        )}
+      </BottomSheetEditor>
+
+      {/* Languages editor */}
+      <BottomSheetEditor
+        visible={showLanguagesEditor}
+        title="Languages"
+        onClose={() => setShowLanguagesEditor(false)}
+        onSave={saveLanguages}
+        saving={savingField}
+        saveDisabled={!draftPrimaryLang}
+      >
+        <StepLanguages
+          primary={draftPrimaryLang}
+          secondary={draftSecondaryLangs}
+          onPrimaryChange={setDraftPrimaryLang}
+          onSecondaryChange={setDraftSecondaryLangs}
+        />
+      </BottomSheetEditor>
+
+      {/* Voice editor */}
+      <BottomSheetEditor
+        visible={showVoiceEditor}
+        title="Voice chat"
+        onClose={() => setShowVoiceEditor(false)}
+      >
+        <StepVoice value={profile?.voice_enabled ?? null} onChange={saveVoice} />
+      </BottomSheetEditor>
     </View>
   );
 }
