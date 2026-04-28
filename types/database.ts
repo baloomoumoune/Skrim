@@ -14,41 +14,229 @@ export type Database = {
   }
   public: {
     Tables: {
-      match_members: {
+      listing_invitations: {
+        Row: {
+          created_at: string
+          direction: Database["public"]["Enums"]["invitation_direction"]
+          expires_at: string
+          from_user_id: string
+          id: string
+          listing_id: string
+          responded_at: string | null
+          status: Database["public"]["Enums"]["invitation_status"]
+          to_user_id: string
+        }
+        Insert: {
+          created_at?: string
+          direction: Database["public"]["Enums"]["invitation_direction"]
+          expires_at?: string
+          from_user_id: string
+          id?: string
+          listing_id: string
+          responded_at?: string | null
+          status?: Database["public"]["Enums"]["invitation_status"]
+          to_user_id: string
+        }
+        Update: {
+          created_at?: string
+          direction?: Database["public"]["Enums"]["invitation_direction"]
+          expires_at?: string
+          from_user_id?: string
+          id?: string
+          listing_id?: string
+          responded_at?: string | null
+          status?: Database["public"]["Enums"]["invitation_status"]
+          to_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "listing_invitations_from_user_id_fkey"
+            columns: ["from_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "listing_invitations_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "listings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "listing_invitations_to_user_id_fkey"
+            columns: ["to_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      listings: {
+        Row: {
+          created_at: string
+          criteria: Json
+          expires_at: string
+          group_composition: Json | null
+          id: string
+          kind: Database["public"]["Enums"]["listing_kind"]
+          lobby_id: string
+          notes: string | null
+          status: Database["public"]["Enums"]["listing_status"]
+          target_lasts_count: number | null
+        }
+        Insert: {
+          created_at?: string
+          criteria: Json
+          expires_at?: string
+          group_composition?: Json | null
+          id?: string
+          kind: Database["public"]["Enums"]["listing_kind"]
+          lobby_id: string
+          notes?: string | null
+          status?: Database["public"]["Enums"]["listing_status"]
+          target_lasts_count?: number | null
+        }
+        Update: {
+          created_at?: string
+          criteria?: Json
+          expires_at?: string
+          group_composition?: Json | null
+          id?: string
+          kind?: Database["public"]["Enums"]["listing_kind"]
+          lobby_id?: string
+          notes?: string | null
+          status?: Database["public"]["Enums"]["listing_status"]
+          target_lasts_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "listings_lobby_id_fkey"
+            columns: ["lobby_id"]
+            isOneToOne: false
+            referencedRelation: "lobbies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lobbies: {
+        Row: {
+          created_at: string
+          group_code: string | null
+          id: string
+          last_launched_at: string | null
+          owner_id: string
+          status: Database["public"]["Enums"]["lobby_status"]
+        }
+        Insert: {
+          created_at?: string
+          group_code?: string | null
+          id?: string
+          last_launched_at?: string | null
+          owner_id: string
+          status?: Database["public"]["Enums"]["lobby_status"]
+        }
+        Update: {
+          created_at?: string
+          group_code?: string | null
+          id?: string
+          last_launched_at?: string | null
+          owner_id?: string
+          status?: Database["public"]["Enums"]["lobby_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lobbies_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lobby_events: {
+        Row: {
+          created_at: string
+          id: string
+          kind: Database["public"]["Enums"]["lobby_event_kind"]
+          lobby_id: string
+          metadata: Json | null
+          recipient_id: string
+          seen_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind: Database["public"]["Enums"]["lobby_event_kind"]
+          lobby_id: string
+          metadata?: Json | null
+          recipient_id: string
+          seen_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["lobby_event_kind"]
+          lobby_id?: string
+          metadata?: Json | null
+          recipient_id?: string
+          seen_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lobby_events_lobby_id_fkey"
+            columns: ["lobby_id"]
+            isOneToOne: false
+            referencedRelation: "lobbies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lobby_events_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lobby_members: {
         Row: {
           id: string
-          is_ready: boolean
           joined_at: string
-          kicked_at: string | null
-          match_id: string
+          left_at: string | null
+          lobby_id: string
+          removed_by_searcher: boolean
+          role: Database["public"]["Enums"]["lobby_member_role"]
           user_id: string
         }
         Insert: {
           id?: string
-          is_ready?: boolean
           joined_at?: string
-          kicked_at?: string | null
-          match_id: string
+          left_at?: string | null
+          lobby_id: string
+          removed_by_searcher?: boolean
+          role: Database["public"]["Enums"]["lobby_member_role"]
           user_id: string
         }
         Update: {
           id?: string
-          is_ready?: boolean
           joined_at?: string
-          kicked_at?: string | null
-          match_id?: string
+          left_at?: string | null
+          lobby_id?: string
+          removed_by_searcher?: boolean
+          role?: Database["public"]["Enums"]["lobby_member_role"]
           user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "match_members_match_id_fkey"
-            columns: ["match_id"]
+            foreignKeyName: "lobby_members_lobby_id_fkey"
+            columns: ["lobby_id"]
             isOneToOne: false
-            referencedRelation: "matches"
+            referencedRelation: "lobbies"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "match_members_user_id_fkey"
+            foreignKeyName: "lobby_members_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -56,79 +244,32 @@ export type Database = {
           },
         ]
       }
-      matches: {
+      profile_servers: {
         Row: {
-          created_at: string
-          creator_id: string
-          current_players: number
-          discord_link: string | null
-          expires_at: string | null
-          game: Database["public"]["Enums"]["game_type"]
-          game_mode: string
-          group_code: string | null
-          id: string
-          launched_at: string | null
-          max_players: number
-          notes: string | null
-          platform: string | null
-          rank_max: string
-          rank_min: string
-          region: Database["public"]["Enums"]["region_type"]
-          rr_penalty: boolean
-          scheduled_at: string | null
-          status: Database["public"]["Enums"]["match_status"]
-          updated_at: string
+          profile_id: string
+          server_id: string
         }
         Insert: {
-          created_at?: string
-          creator_id: string
-          current_players?: number
-          discord_link?: string | null
-          expires_at?: string | null
-          game: Database["public"]["Enums"]["game_type"]
-          game_mode?: string
-          group_code?: string | null
-          id?: string
-          launched_at?: string | null
-          max_players?: number
-          notes?: string | null
-          platform?: string | null
-          rank_max: string
-          rank_min: string
-          region: Database["public"]["Enums"]["region_type"]
-          rr_penalty?: boolean
-          scheduled_at?: string | null
-          status?: Database["public"]["Enums"]["match_status"]
-          updated_at?: string
+          profile_id: string
+          server_id: string
         }
         Update: {
-          created_at?: string
-          creator_id?: string
-          current_players?: number
-          discord_link?: string | null
-          expires_at?: string | null
-          game?: Database["public"]["Enums"]["game_type"]
-          game_mode?: string
-          group_code?: string | null
-          id?: string
-          launched_at?: string | null
-          max_players?: number
-          notes?: string | null
-          platform?: string | null
-          rank_max?: string
-          rank_min?: string
-          region?: Database["public"]["Enums"]["region_type"]
-          rr_penalty?: boolean
-          scheduled_at?: string | null
-          status?: Database["public"]["Enums"]["match_status"]
-          updated_at?: string
+          profile_id?: string
+          server_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "matches_creator_id_fkey"
-            columns: ["creator_id"]
+            foreignKeyName: "profile_servers_profile_id_fkey"
+            columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profile_servers_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "valorant_servers"
             referencedColumns: ["id"]
           },
         ]
@@ -136,54 +277,60 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          birthdate: string
           created_at: string
-          current_rank: string | null
+          current_rank: string
           discord_tag: string | null
           id: string
-          last_rank_reset_at: string | null
           main_agent: string | null
-          platform: string | null
+          platform: Database["public"]["Enums"]["valorant_platform"]
           preferred_game: Database["public"]["Enums"]["game_type"] | null
-          previous_rank_before_reset: string | null
+          primary_language: string
           push_token: string | null
-          region: Database["public"]["Enums"]["region_type"]
-          timezone: string
+          rank_updated_at: string
+          region: Database["public"]["Enums"]["valorant_region"]
+          secondary_languages: string[]
           updated_at: string
           username: string
+          voice_enabled: boolean
         }
         Insert: {
           avatar_url?: string | null
+          birthdate: string
           created_at?: string
-          current_rank?: string | null
+          current_rank: string
           discord_tag?: string | null
           id: string
-          last_rank_reset_at?: string | null
           main_agent?: string | null
-          platform?: string | null
+          platform: Database["public"]["Enums"]["valorant_platform"]
           preferred_game?: Database["public"]["Enums"]["game_type"] | null
-          previous_rank_before_reset?: string | null
+          primary_language: string
           push_token?: string | null
-          region?: Database["public"]["Enums"]["region_type"]
-          timezone?: string
+          rank_updated_at?: string
+          region: Database["public"]["Enums"]["valorant_region"]
+          secondary_languages?: string[]
           updated_at?: string
           username: string
+          voice_enabled?: boolean
         }
         Update: {
           avatar_url?: string | null
+          birthdate?: string
           created_at?: string
-          current_rank?: string | null
+          current_rank?: string
           discord_tag?: string | null
           id?: string
-          last_rank_reset_at?: string | null
           main_agent?: string | null
-          platform?: string | null
+          platform?: Database["public"]["Enums"]["valorant_platform"]
           preferred_game?: Database["public"]["Enums"]["game_type"] | null
-          previous_rank_before_reset?: string | null
+          primary_language?: string
           push_token?: string | null
-          region?: Database["public"]["Enums"]["region_type"]
-          timezone?: string
+          rank_updated_at?: string
+          region?: Database["public"]["Enums"]["valorant_region"]
+          secondary_languages?: string[]
           updated_at?: string
           username?: string
+          voice_enabled?: boolean
         }
         Relationships: [
           {
@@ -360,7 +507,6 @@ export type Database = {
           name: string
           president_id: string
           rank_tier: string | null
-          region: Database["public"]["Enums"]["region_type"]
           tag: string
           updated_at: string
         }
@@ -374,7 +520,6 @@ export type Database = {
           name: string
           president_id: string
           rank_tier?: string | null
-          region: Database["public"]["Enums"]["region_type"]
           tag: string
           updated_at?: string
         }
@@ -388,7 +533,6 @@ export type Database = {
           name?: string
           president_id?: string
           rank_tier?: string | null
-          region?: Database["public"]["Enums"]["region_type"]
           tag?: string
           updated_at?: string
         }
@@ -824,6 +968,27 @@ export type Database = {
           },
         ]
       }
+      valorant_servers: {
+        Row: {
+          display_name: string
+          id: string
+          region: Database["public"]["Enums"]["valorant_region"]
+          sort_order: number
+        }
+        Insert: {
+          display_name: string
+          id: string
+          region: Database["public"]["Enums"]["valorant_region"]
+          sort_order?: number
+        }
+        Update: {
+          display_name?: string
+          id?: string
+          region?: Database["public"]["Enums"]["valorant_region"]
+          sort_order?: number
+        }
+        Relationships: []
+      }
       valorant_weapons: {
         Row: {
           asset_path: string | null
@@ -874,8 +1039,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_invitation: { Args: { p_invitation_id: string }; Returns: string }
       accept_team_invite: { Args: { p_invite_id: string }; Returns: undefined }
-      check_active_match: { Args: { p_user_id: string }; Returns: boolean }
+      assert_launch_composition_valid: {
+        Args: { p_lobby_id: string }
+        Returns: undefined
+      }
+      assert_lobby_owner: { Args: { p_lobby_id: string }; Returns: undefined }
+      cancel_invitation: {
+        Args: { p_invitation_id: string }
+        Returns: undefined
+      }
+      cancel_listing: { Args: { p_listing_id: string }; Returns: undefined }
       check_email_exists: { Args: { p_email: string }; Returns: boolean }
       check_kick_cooldown: {
         Args: {
@@ -889,7 +1064,95 @@ export type Database = {
         Args: { p_username: string }
         Returns: boolean
       }
-      expire_old_matches: { Args: never; Returns: undefined }
+      create_last_listing: {
+        Args: { p_criteria: Json; p_notes?: string }
+        Returns: string
+      }
+      create_searcher_listing: {
+        Args: {
+          p_coplayer_invites: string[]
+          p_criteria: Json
+          p_group_composition: Json
+          p_notes?: string
+          p_target_lasts_count: number
+        }
+        Returns: string
+      }
+      decline_invitation: {
+        Args: { p_invitation_id: string }
+        Returns: undefined
+      }
+      expire_old_invitations: { Args: never; Returns: number }
+      expire_old_listings: { Args: never; Returns: number }
+      get_last_feed: {
+        Args: { p_filter_overrides?: Json }
+        Returns: {
+          created_at: string
+          criteria: Json
+          expires_at: string
+          listing_id: string
+          lobby_id: string
+          notes: string
+          owner_avatar_url: string
+          owner_current_rank: string
+          owner_id: string
+          owner_username: string
+        }[]
+      }
+      get_lobby_state: { Args: { p_lobby_id: string }; Returns: Json }
+      get_my_active_listing: {
+        Args: never
+        Returns: {
+          created_at: string
+          criteria: Json
+          expires_at: string
+          group_code: string
+          group_composition: Json
+          kind: Database["public"]["Enums"]["listing_kind"]
+          listing_id: string
+          lobby_id: string
+          lobby_status: Database["public"]["Enums"]["lobby_status"]
+          notes: string
+          status: Database["public"]["Enums"]["listing_status"]
+          target_lasts_count: number
+        }[]
+      }
+      get_searcher_feed: {
+        Args: { p_filter_overrides?: Json }
+        Returns: {
+          created_at: string
+          criteria: Json
+          expires_at: string
+          group_composition: Json
+          listing_id: string
+          lobby_id: string
+          notes: string
+          owner_avatar_url: string
+          owner_current_rank: string
+          owner_id: string
+          owner_username: string
+          target_lasts_count: number
+        }[]
+      }
+      get_sync_health_snapshot: { Args: { p_since?: string }; Returns: Json }
+      get_vault_secret: { Args: { p_name: string }; Returns: string }
+      invite_coplayer: {
+        Args: { p_listing_id: string; p_target_user_id: string }
+        Returns: string
+      }
+      invite_last: {
+        Args: { p_listing_id: string; p_target_user_id: string }
+        Returns: string
+      }
+      is_immortal_plus: { Args: { p_tier_name: string }; Returns: boolean }
+      launch_lobby: { Args: { p_lobby_id: string }; Returns: undefined }
+      leave_lobby: { Args: { p_lobby_id: string }; Returns: undefined }
+      lobby_active_member_count: {
+        Args: { p_lobby_id: string }
+        Returns: number
+      }
+      mark_events_seen: { Args: { p_event_ids: string[] }; Returns: number }
+      my_lobby_id: { Args: never; Returns: string }
       process_rank_reset: {
         Args: { p_act_uuid: string; p_target_user_ids?: string[] }
         Returns: {
@@ -897,18 +1160,48 @@ export type Database = {
           user_ids: string[]
         }[]
       }
+      propose_as_last: { Args: { p_listing_id: string }; Returns: string }
       recalculate_team_rank: {
         Args: { p_rank_order: string[]; p_team_id: string }
         Returns: string
       }
-      renew_match: { Args: { p_match_id: string }; Returns: undefined }
+      remove_lobby_member: {
+        Args: { p_lobby_id: string; p_target_user_id: string }
+        Returns: undefined
+      }
+      set_group_code: {
+        Args: { p_code: string; p_lobby_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       game_type: "valorant" | "cs2"
-      match_status: "open" | "full" | "in_progress" | "completed" | "cancelled"
-      region_type: "eu" | "na" | "apac" | "sa" | "me" | "oce"
+      invitation_direction: "invite_last" | "propose_last" | "invite_coplayer"
+      invitation_status:
+        | "pending"
+        | "accepted"
+        | "declined"
+        | "expired"
+        | "cancelled"
+      listing_kind: "searcher" | "last"
+      listing_status: "open" | "closed" | "expired"
+      lobby_event_kind:
+        | "invitation_received"
+        | "invitation_accepted"
+        | "invitation_declined"
+        | "member_joined"
+        | "member_left"
+        | "member_kicked"
+        | "group_code_set"
+        | "lobby_launched"
+        | "listing_expiring_soon"
+        | "listing_expired"
+      lobby_member_role: "searcher" | "coplayer" | "last"
+      lobby_status: "idle" | "searching" | "launched"
       team_invite_status: "pending" | "accepted" | "rejected"
       team_role: "captain" | "player" | "sub" | "coach" | "president"
+      valorant_platform: "pc" | "console"
+      valorant_region: "NA" | "LATAM" | "BR" | "EU" | "KR" | "APAC"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1037,29 +1330,60 @@ export const Constants = {
   public: {
     Enums: {
       game_type: ["valorant", "cs2"],
-      match_status: ["open", "full", "in_progress", "completed", "cancelled"],
-      region_type: ["eu", "na", "apac", "sa", "me", "oce"],
+      invitation_direction: ["invite_last", "propose_last", "invite_coplayer"],
+      invitation_status: [
+        "pending",
+        "accepted",
+        "declined",
+        "expired",
+        "cancelled",
+      ],
+      listing_kind: ["searcher", "last"],
+      listing_status: ["open", "closed", "expired"],
+      lobby_event_kind: [
+        "invitation_received",
+        "invitation_accepted",
+        "invitation_declined",
+        "member_joined",
+        "member_left",
+        "member_kicked",
+        "group_code_set",
+        "lobby_launched",
+        "listing_expiring_soon",
+        "listing_expired",
+      ],
+      lobby_member_role: ["searcher", "coplayer", "last"],
+      lobby_status: ["idle", "searching", "launched"],
       team_invite_status: ["pending", "accepted", "rejected"],
       team_role: ["captain", "player", "sub", "coach", "president"],
+      valorant_platform: ["pc", "console"],
+      valorant_region: ["NA", "LATAM", "BR", "EU", "KR", "APAC"],
     },
   },
 } as const
 
-// ── Convenience aliases used across the app ───────────────
-// Re-exports on top of the strict Database type so the regenerated baseline
-// (generated by MCP generate_typescript_types) stays intact while the rest of
-// the codebase keeps its ergonomic imports.
+// ── Compatibility aliases ──────────────────────────────────────────────
+// Hand-maintained re-exports of common Row / Enum types used across the
+// app. Keep these in sync when the schema changes.
 
-export type Profile = Tables<'profiles'>
-export type Match = Tables<'matches'>
-export type MatchMember = Tables<'match_members'>
-export type Team = Tables<'teams'>
-export type TeamMember = Tables<'team_members'>
-export type TeamInvite = Tables<'team_invites'>
+type _Tables = Database["public"]["Tables"]
+type _Enums = Database["public"]["Enums"]
 
-export type Region = Database['public']['Enums']['region_type']
-export type GameEnum = Database['public']['Enums']['game_type']
-export type TeamRole = Database['public']['Enums']['team_role']
+export type Profile = _Tables["profiles"]["Row"]
+export type Team = _Tables["teams"]["Row"]
+export type TeamMember = _Tables["team_members"]["Row"]
+export type TeamInvite = _Tables["team_invites"]["Row"]
 
-// App-layer union, not a DB enum (matches.platform / profiles.platform are nullable text)
-export type Platform = 'pc' | 'console'
+export type Lobby = _Tables["lobbies"]["Row"]
+export type LobbyMember = _Tables["lobby_members"]["Row"]
+export type LobbyEvent = _Tables["lobby_events"]["Row"]
+export type Listing = _Tables["listings"]["Row"]
+export type ListingInvitation = _Tables["listing_invitations"]["Row"]
+export type ValorantServer = _Tables["valorant_servers"]["Row"]
+export type ProfileServer = _Tables["profile_servers"]["Row"]
+
+export type Region = _Enums["valorant_region"]
+export type Platform = _Enums["valorant_platform"]
+export type TeamRole = _Enums["team_role"]
+export type GameEnum = "valorant" | "cs2"
+

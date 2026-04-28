@@ -8,12 +8,12 @@ import type { UsernameStatus } from './useUsernameCheck';
 import type { Region } from '@/types/database';
 
 const REGIONS: { value: Region; label: string; flag: string }[] = [
-  { value: 'eu', label: 'EU', flag: '🇪🇺' },
-  { value: 'na', label: 'NA', flag: '🇺🇸' },
-  { value: 'apac', label: 'APAC', flag: '🌏' },
-  { value: 'sa', label: 'SA', flag: '🇧🇷' },
-  { value: 'me', label: 'ME', flag: '🇸🇦' },
-  { value: 'oce', label: 'OCE', flag: '🇦🇺' },
+  { value: 'EU',    label: 'EU',    flag: '🇪🇺' },
+  { value: 'NA',    label: 'NA',    flag: '🇺🇸' },
+  { value: 'LATAM', label: 'LATAM', flag: '🇲🇽' },
+  { value: 'BR',    label: 'BR',    flag: '🇧🇷' },
+  { value: 'KR',    label: 'KR',    flag: '🇰🇷' },
+  { value: 'APAC',  label: 'APAC',  flag: '🌏' },
 ];
 
 interface StepProfileProps {

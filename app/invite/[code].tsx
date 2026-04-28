@@ -21,10 +21,6 @@ import { supabase } from '@/lib/supabase';
 import { TeamInitials } from '@/components/TeamInitials';
 import type { Team } from '@/types/database';
 
-const REGION_LABELS: Record<string, string> = {
-  eu: 'EU', na: 'NA', apac: 'APAC', sa: 'SA', me: 'ME', oce: 'OCE',
-};
-
 export default function InviteScreen() {
   const { code } = useLocalSearchParams<{ code: string }>();
   const router = useRouter();
@@ -214,13 +210,6 @@ export default function InviteScreen() {
               <Text style={[styles.badgeText, { color: c.textSecondary }]}>{gameConfig.name}</Text>
             </View>
           )}
-
-          <View style={[styles.badge, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' }]}>
-            <Ionicons name="globe-outline" size={12} color={c.textSecondary} />
-            <Text style={[styles.badgeText, { color: c.textSecondary }]}>
-              {REGION_LABELS[team.region] ?? team.region.toUpperCase()}
-            </Text>
-          </View>
 
           <View style={[styles.badge, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' }]}>
             <Ionicons name="people-outline" size={12} color={c.textSecondary} />

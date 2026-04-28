@@ -376,20 +376,6 @@ export default function ProfileScreen() {
             <Text numberOfLines={1} style={{ fontSize: 11, fontWeight: '600', marginTop: 4, color: c.textSecondary }}>
               {currentRankMeta?.name ?? '—'}
             </Text>
-            {profile?.current_rank === 'unranked' && profile?.previous_rank_before_reset ? (
-              <Text
-                numberOfLines={1}
-                style={{
-                  fontSize: 12,
-                  fontWeight: '400',
-                  marginTop: 2,
-                  paddingHorizontal: 4,
-                  color: c.textSecondary,
-                }}
-              >
-                Last rank: {formatRank(profile.previous_rank_before_reset)}
-              </Text>
-            ) : null}
           </View>
 
           {/* Main Agent */}

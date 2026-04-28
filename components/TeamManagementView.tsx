@@ -23,15 +23,6 @@ import TeamSettingsModal from '@/components/team/TeamSettingsModal';
 import type { Team, TeamRole } from '@/types/database';
 import type { TeamMemberWithProfile } from '@/types/composites';
 
-const REGION_LABELS: Record<string, string> = {
-  eu: 'EU',
-  na: 'NA',
-  apac: 'APAC',
-  sa: 'SA',
-  me: 'ME',
-  oce: 'OCE',
-};
-
 interface TeamManagementViewProps {
   team: Team;
   members: TeamMemberWithProfile[];
@@ -229,13 +220,6 @@ export default function TeamManagementView({
                   contentFit="contain"
                 />
                 <Text style={[styles.badgeText, { color: c.textSecondary }]}>{gameConfig.name}</Text>
-              </View>
-
-              <View style={[styles.badge, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' }]}>
-                <Ionicons name="globe-outline" size={10} color={c.textSecondary} />
-                <Text style={[styles.badgeText, { color: c.textSecondary }]}>
-                  {REGION_LABELS[team.region] ?? team.region.toUpperCase()}
-                </Text>
               </View>
 
               {rankImage && (

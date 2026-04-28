@@ -26,18 +26,9 @@ import { GAME_ACCENTS, type GameId } from '@/lib/constants';
 import { getGameLogoUrl } from '@/lib/game-assets';
 import { supabase } from '@/lib/supabase';
 import { TeamInitials } from '@/components/TeamInitials';
-import type { Profile, Region, Team } from '@/types/database';
+import type { Profile, Team } from '@/types/database';
 
 type StepId = 'info' | 'invite';
-
-const REGIONS: { id: Region; label: string }[] = [
-  { id: 'eu', label: 'EU' },
-  { id: 'na', label: 'NA' },
-  { id: 'apac', label: 'APAC' },
-  { id: 'sa', label: 'SA' },
-  { id: 'me', label: 'ME' },
-  { id: 'oce', label: 'OCE' },
-];
 
 const ALL_GAMES = Object.values(GAME_ACCENTS);
 
@@ -66,7 +57,6 @@ export default function CreateTeamModal({ visible, onClose, onCreated }: CreateT
   const [teamName, setTeamName] = useState('');
   const [teamTag, setTeamTag] = useState('');
   const [teamGame, setTeamGame] = useState<GameId>(selectedGame);
-  const [teamRegion, setTeamRegion] = useState<Region>(profile?.region ?? 'eu');
   const [description, setDescription] = useState('');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [showGameDropdown, setShowGameDropdown] = useState(false);
@@ -131,7 +121,6 @@ export default function CreateTeamModal({ visible, onClose, onCreated }: CreateT
     setTeamName('');
     setTeamTag('');
     setTeamGame(selectedGame);
-    setTeamRegion(profile?.region ?? 'eu');
     setDescription('');
     setPhotoUri(null);
     setShowGameDropdown(false);
@@ -142,7 +131,7 @@ export default function CreateTeamModal({ visible, onClose, onCreated }: CreateT
     setPendingInviteIds(new Set());
     setCopiedLink(false);
     setCreating(false);
-  }, [selectedGame, profile?.region]);
+  }, [selectedGame]);
 
   const handleClose = () => {
     resetState();
@@ -197,7 +186,6 @@ export default function CreateTeamModal({ visible, onClose, onCreated }: CreateT
         name,
         tag,
         game: teamGame,
-        region: teamRegion,
         description: description.trim() || null,
         president_id: user.id,
         rank_tier: profile.current_rank,
@@ -507,41 +495,6 @@ export default function CreateTeamModal({ visible, onClose, onCreated }: CreateT
             })}
           </View>
         )}
-
-        {/* Region */}
-        <Text style={[styles.fieldLabel, { color: c.textSecondary }]}>Region</Text>
-        <View style={styles.regionRow}>
-          {REGIONS.map((r) => {
-            const isActive = r.id === teamRegion;
-            return (
-              <TouchableOpacity
-                key={r.id}
-                activeOpacity={0.7}
-                onPress={() => setTeamRegion(r.id)}
-                style={[
-                  styles.regionChip,
-                  {
-                    backgroundColor: isActive
-                      ? game.accent
-                      : isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
-                    borderColor: isActive
-                      ? game.accent
-                      : isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.regionLabel,
-                    { color: isActive ? '#FFFFFF' : c.textSecondary },
-                  ]}
-                >
-                  {r.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
 
         {/* Description */}
         <Text style={[styles.fieldLabel, { color: c.textSecondary }]}>Description</Text>
