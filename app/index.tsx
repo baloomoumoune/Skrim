@@ -1,7 +1,23 @@
-import { View } from 'react-native';
+import { StyleSheet, Text, View } from "react-native";
 
-// This screen is never visible — LoadingScreen covers it while _layout.tsx
-// determines the redirect destination (login, onboarding, or tabs).
 export default function Index() {
-  return <View className="flex-1 bg-background" />;
+  return (
+    <View style={styles.container}>
+      <Text style={styles.text}>Bonjour</Text>
+    </View>
+  );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#fff",
+  },
+  text: {
+    fontSize: 32,
+    fontWeight: "600",
+    color: "#000",
+  },
+});

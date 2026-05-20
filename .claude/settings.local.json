@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(ls -la \"c:/Users/HOME/Desktop/PROJETS/skrim/Skrim/app/\\(auth\\)/\")"
+      "Bash(ls -la \"c:/Users/HOME/Desktop/PROJETS/skrim/Skrim/app/\\(auth\\)/\")",
+      "mcp__claude_ai_Supabase__deploy_edge_function"
     ]
   }
 }
