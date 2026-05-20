@@ -703,8 +703,12 @@ serve(async (req: Request) => {
   ) {
     log('act_change_detected', { from: actBefore.uuid, to: actAfter.uuid });
 
+    // supabase.functions.invoke() defaults to the anon key in the Authorization
+    // header regardless of what was passed to createClient(). handle-rank-reset
+    // requires a service_role JWT, so we override the header explicitly.
     const { error: invokeError } = await supabase.functions.invoke('handle-rank-reset', {
       body: { act_uuid: actAfter.uuid },
+      headers: { Authorization: `Bearer ${serviceRoleKey}` },
     });
 
     if (invokeError) {

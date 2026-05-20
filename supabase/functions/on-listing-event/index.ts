@@ -20,6 +20,8 @@ type LobbyEventKind =
   | 'listing_expiring_soon'
   | 'listing_expired';
 
+type InvitationDirection = 'invite_last' | 'propose_last';
+
 interface Payload {
   type: 'INSERT';
   table: 'lobby_events';
@@ -38,13 +40,46 @@ const SEND_PUSH_URL = `${SUPABASE_URL}/functions/v1/send-push`;
 
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE);
 
-function buildNotification(
+async function getActorUsername(invitationId: string | undefined): Promise<string | null> {
+  if (!invitationId) return null;
+  const { data: inv } = await supabase
+    .from('listing_invitations')
+    .select('from_user_id')
+    .eq('id', invitationId)
+    .maybeSingle();
+  if (!inv?.from_user_id) return null;
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('username')
+    .eq('id', inv.from_user_id)
+    .maybeSingle();
+  return profile?.username ?? null;
+}
+
+async function buildNotification(
   kind: LobbyEventKind,
   metadata: Record<string, unknown> | null,
-): { title: string; body: string } {
+): Promise<{ title: string; body: string }> {
   switch (kind) {
-    case 'invitation_received':
-      return { title: 'New invitation', body: 'You have a new lobby invitation' };
+    case 'invitation_received': {
+      const direction = metadata?.direction as InvitationDirection | undefined;
+      const invitationId = metadata?.invitation_id as string | undefined;
+      const username = await getActorUsername(invitationId);
+      const who = username ?? 'Someone';
+      if (direction === 'invite_last') {
+        return {
+          title: `${who} wants you as their last`,
+          body: 'Tap to view the invitation',
+        };
+      }
+      if (direction === 'propose_last') {
+        return {
+          title: `${who} offers to be your last`,
+          body: 'Tap to view the proposal',
+        };
+      }
+      return { title: 'New invitation', body: `From ${who}` };
+    }
     case 'invitation_accepted':
       return { title: 'Invitation accepted', body: 'Your invitation was accepted' };
     case 'invitation_declined':
@@ -94,7 +129,7 @@ serve(async (req: Request) => {
     return new Response(JSON.stringify({ skipped: 'no token' }), { status: 200 });
   }
 
-  const notif = buildNotification(kind, metadata);
+  const notif = await buildNotification(kind, metadata);
   const data = { kind, ...(metadata ?? {}) };
 
   const res = await fetch(SEND_PUSH_URL, {
